@@ -15,9 +15,13 @@ class PoseScreen extends StatefulWidget {
 
 class _PoseScreenState extends State<PoseScreen> {
   CameraController? _controller;
-  late final PoseDetector _detector = PoseDetector(options: PoseDetectorOptions());
+  late final PoseDetector _detector =
+      PoseDetector(options: PoseDetectorOptions(mode: PoseDetectionMode.stream));
   bool _isDetecting = false;
-  List<Map<String, dynamic>> _keyPoints = [];
+
+  // 🔹 Use ValueNotifier instead of setState
+  final ValueNotifier<List<Map<String, dynamic>>> _keyPoints =
+      ValueNotifier<List<Map<String, dynamic>>>([]);
 
   @override
   void initState() {
@@ -34,7 +38,7 @@ class _PoseScreenState extends State<PoseScreen> {
 
     _controller = CameraController(
       front ?? cameras.first,
-      ResolutionPreset.medium,          // ← more pixels → wider field
+      ResolutionPreset.low,
       enableAudio: false,
       imageFormatGroup: Platform.isAndroid
           ? ImageFormatGroup.nv21
@@ -43,7 +47,7 @@ class _PoseScreenState extends State<PoseScreen> {
 
     await _controller!.initialize();
     if (!mounted) return;
-    setState(() {});
+    setState(() {}); // keep only for first render
     _controller!.startImageStream(_process);
   }
 
@@ -68,14 +72,14 @@ class _PoseScreenState extends State<PoseScreen> {
       for (final lm in poses.first.landmarks.values) {
         list.add({
           'label': lm.type.name,
-          'x': lm.x,   // keep raw pixels
+          'x': lm.x,
           'y': lm.y,
           'confidence': lm.likelihood,
         });
       }
 
-
-      setState(() => _keyPoints = list);
+      // 🔹 Update without rebuilding Scaffold
+      _keyPoints.value = list;
     } catch (e) {
       debugPrint('pose error: $e');
     } finally {
@@ -87,7 +91,6 @@ class _PoseScreenState extends State<PoseScreen> {
     final camera = _controller!.description;
     final sensor = camera.sensorOrientation;
 
-    // map Flutter orientation → degrees
     final orientations = <DeviceOrientation, int>{
       DeviceOrientation.portraitUp: 0,
       DeviceOrientation.landscapeLeft: 90,
@@ -95,19 +98,22 @@ class _PoseScreenState extends State<PoseScreen> {
       DeviceOrientation.landscapeRight: 270,
     };
 
-    int rotationCompensation = orientations[_controller!.value.deviceOrientation] ?? 0;
+    int rotationCompensation =
+        orientations[_controller!.value.deviceOrientation] ?? 0;
 
     if (Platform.isAndroid) {
       if (camera.lensDirection == CameraLensDirection.front) {
         rotationCompensation = (sensor + rotationCompensation) % 360;
       } else {
-        rotationCompensation = (sensor - rotationCompensation + 360) % 360;
+        rotationCompensation =
+            (sensor - rotationCompensation + 360) % 360;
       }
     } else {
       rotationCompensation = sensor;
     }
 
-    final rotation = InputImageRotationValue.fromRawValue(rotationCompensation);
+    final rotation =
+        InputImageRotationValue.fromRawValue(rotationCompensation);
     if (rotation == null) return null;
 
     final format = InputImageFormatValue.fromRawValue(image.format.raw);
@@ -130,37 +136,33 @@ class _PoseScreenState extends State<PoseScreen> {
   void dispose() {
     _controller?.dispose();
     _detector.close();
+    _keyPoints.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_controller == null || !_controller!.value.isInitialized) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+          body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Pose Tracking')),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // Camera preview dimensions (note: width and height are swapped for portrait orientation)
           final previewW = _controller!.value.previewSize!.height;
           final previewH = _controller!.value.previewSize!.width;
-          
-          // Container dimensions
+
           final boxW = constraints.maxWidth;
           final boxH = constraints.maxHeight;
 
-          // Calculate scale factor for BoxFit.cover
-          // (takes the larger scale to ensure full coverage)
           final scaleX = boxW / previewW;
           final scaleY = boxH / previewH;
           final scale = scaleX > scaleY ? scaleX : scaleY;
-          
-          // Calculate the actual painted dimensions
+
           final paintedW = previewW * scale;
           final paintedH = previewH * scale;
-          
-          // Calculate offsets for centering the cropped preview
+
           final offsetX = (paintedW - boxW) / 2;
           final offsetY = (paintedH - boxH) / 2;
 
@@ -179,19 +181,23 @@ class _PoseScreenState extends State<PoseScreen> {
               Positioned(
                 left: -offsetX,
                 top: -offsetY,
-                child: CustomPaint(
-                  size: Size(paintedW, paintedH),
-                  painter: PosePainterMlKit(
-                    _keyPoints,
-                    _controller!.description.lensDirection,
-                    imageWidth: previewW,
-                    imageHeight: previewH,
-                  ),
+                child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                  valueListenable: _keyPoints,
+                  builder: (context, points, _) {
+                    return CustomPaint(
+                      size: Size(paintedW, paintedH),
+                      painter: PosePainterMlKit(
+                        points,
+                        _controller!.description.lensDirection,
+                        imageWidth: previewW,
+                        imageHeight: previewH,
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
           );
-
         },
       ),
     );

@@ -66,17 +66,14 @@ class _PoseScreenState extends State<PoseScreen> {
 
       final List<Map<String, dynamic>> list = [];
       for (final lm in poses.first.landmarks.values) {
-
-        final x = lm.x / image.width;
-        final y = lm.y / image.height;
-
         list.add({
           'label': lm.type.name,
-          'x': x,
-          'y': y,
+          'x': lm.x,   // keep raw pixels
+          'y': lm.y,
           'confidence': lm.likelihood,
         });
       }
+
 
       setState(() => _keyPoints = list);
     } catch (e) {
@@ -169,7 +166,6 @@ class _PoseScreenState extends State<PoseScreen> {
 
           return Stack(
             children: [
-              // Camera preview with BoxFit.cover
               SizedBox.expand(
                 child: FittedBox(
                   fit: BoxFit.cover,
@@ -180,7 +176,6 @@ class _PoseScreenState extends State<PoseScreen> {
                   ),
                 ),
               ),
-              // Skeleton overlay - properly positioned and clipped
               Positioned(
                 left: -offsetX,
                 top: -offsetY,
@@ -189,11 +184,14 @@ class _PoseScreenState extends State<PoseScreen> {
                   painter: PosePainterMlKit(
                     _keyPoints,
                     _controller!.description.lensDirection,
+                    imageWidth: previewW,
+                    imageHeight: previewH,
                   ),
                 ),
               ),
             ],
           );
+
         },
       ),
     );

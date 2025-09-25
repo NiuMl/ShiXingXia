@@ -34,7 +34,7 @@ class _PoseScreenState extends State<PoseScreen> {
 
     _controller = CameraController(
       front ?? cameras.first,
-      ResolutionPreset.ultraHigh,          // ← more pixels → wider field
+      ResolutionPreset.medium,          // ← more pixels → wider field
       enableAudio: false,
       imageFormatGroup: Platform.isAndroid
           ? ImageFormatGroup.nv21
@@ -143,21 +143,33 @@ class _PoseScreenState extends State<PoseScreen> {
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Pose Tracking')),
-      body: LayoutBuilder(                       // ← measure the container
+      body: LayoutBuilder(
         builder: (context, constraints) {
+          // Camera preview dimensions (note: width and height are swapped for portrait orientation)
           final previewW = _controller!.value.previewSize!.height;
           final previewH = _controller!.value.previewSize!.width;
+          
+          // Container dimensions
           final boxW = constraints.maxWidth;
           final boxH = constraints.maxHeight;
 
-          // compute *cover* scale factor actually used by FittedBox
-          final scale = (boxW / previewW).clamp((boxH / previewH), double.infinity);
+          // Calculate scale factor for BoxFit.cover
+          // (takes the larger scale to ensure full coverage)
+          final scaleX = boxW / previewW;
+          final scaleY = boxH / previewH;
+          final scale = scaleX > scaleY ? scaleX : scaleY;
+          
+          // Calculate the actual painted dimensions
           final paintedW = previewW * scale;
           final paintedH = previewH * scale;
+          
+          // Calculate offsets for centering the cropped preview
+          final offsetX = (paintedW - boxW) / 2;
+          final offsetY = (paintedH - boxH) / 2;
 
           return Stack(
             children: [
-              // camera preview (unchanged)
+              // Camera preview with BoxFit.cover
               SizedBox.expand(
                 child: FittedBox(
                   fit: BoxFit.cover,
@@ -168,12 +180,16 @@ class _PoseScreenState extends State<PoseScreen> {
                   ),
                 ),
               ),
-              // skeleton – exact same scale & centre crop
-              CustomPaint(
-                size: Size(paintedW, paintedH),
-                painter: PosePainterMlKit(
-                  _keyPoints,
-                  _controller!.description.lensDirection,   // ← use the real field
+              // Skeleton overlay - properly positioned and clipped
+              Positioned(
+                left: -offsetX,
+                top: -offsetY,
+                child: CustomPaint(
+                  size: Size(paintedW, paintedH),
+                  painter: PosePainterMlKit(
+                    _keyPoints,
+                    _controller!.description.lensDirection,
+                  ),
                 ),
               ),
             ],

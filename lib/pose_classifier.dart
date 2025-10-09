@@ -11,30 +11,37 @@ class PoseClassifier {
   KnnClassifier? _classifier;
   bool _isModelLoaded = false;
 
-  // Pushup counting
-  String _lastPrediction = '';
+  // MediaPipe-style repetition counter
+  bool _poseEntered = false;
   int _pushupCount = 0;
   final ValueNotifier<int> pushupCounter = ValueNotifier<int>(0);
   final ValueNotifier<String> currentPose = ValueNotifier<String>('unknown');
   final ValueNotifier<double> confidence = ValueNotifier<double>(0.0);
   
-  // Threshold calibration - adjusts how confident we need to be for "down" position
-  final ValueNotifier<double> downThreshold = ValueNotifier<double>(0.5);
+  // Threshold calibration - these are confidence thresholds (not probabilities)
+  final ValueNotifier<double> enterThreshold = ValueNotifier<double>(6.0);
+  final ValueNotifier<double> exitThreshold = ValueNotifier<double>(4.0);
+  
+  // Track classification confidence for visualization
+  final ValueNotifier<double> downConfidence = ValueNotifier<double>(0.0);
+  final ValueNotifier<double> upConfidence = ValueNotifier<double>(0.0);
   
   // Track raw elbow angle for calibration feedback
   final ValueNotifier<double> currentElbowAngle = ValueNotifier<double>(0.0);
+  
+  // EMA smoothing for confidence scores
+  double _smoothedDownConf = 0.0;
+  double _smoothedUpConf = 0.0;
+  final double _emaAlpha = 0.3; // Smoothing factor
 
-  PoseClassifier({this.logEveryXFrames = 10});
+  PoseClassifier({this.logEveryXFrames = 1});
 
   /// Load the trained KNN model from CSV training data
   Future<void> loadModel() async {
     try {
       debugPrint('🔄 Loading KNN model...');
       
-      // Load the training dataset from assets
       final csvContent = await rootBundle.loadString('assets/pushup_features_binary.csv');
-      
-      // Parse CSV into DataFrame
       final trainData = DataFrame.fromRawCsv(
         csvContent,
         headerExists: true,
@@ -43,11 +50,10 @@ class PoseClassifier {
 
       debugPrint('✅ Training data loaded: ${trainData.rows.length} samples');
       
-      // Train KNN classifier with normalized data
       _classifier = KnnClassifier(
         trainData,
-        'pose', // target column name
-        3, // k=3 neighbors
+        'pose',
+        3,
         kernel: KernelType.gaussian,
         distance: Distance.euclidean,
       );
@@ -91,7 +97,6 @@ class PoseClassifier {
   Map<PoseLandmarkType, PoseLandmark> _normalizeLandmarks(
     Map<PoseLandmarkType, PoseLandmark> lms,
   ) {
-    // 1. Center around mid-hip
     final center = _avgLandmarks([
       lms[PoseLandmarkType.leftHip]!,
       lms[PoseLandmarkType.rightHip]!,
@@ -107,7 +112,6 @@ class PoseClassifier {
       );
     }
 
-    // 2. Scale by torso length (shoulder–hip distance)
     final leftShoulder = centered[PoseLandmarkType.leftShoulder]!;
     final rightShoulder = centered[PoseLandmarkType.rightShoulder]!;
     final leftHip = centered[PoseLandmarkType.leftHip]!;
@@ -119,7 +123,6 @@ class PoseClassifier {
     );
     final scale = torsoLen == 0 ? 1.0 : torsoLen;
 
-    // 3. Divide all coords by scale → unitless normalized 3D space
     final normalized = <PoseLandmarkType, PoseLandmark>{};
     for (final e in centered.entries) {
       normalized[e.key] = PoseLandmark(
@@ -139,7 +142,6 @@ class PoseClassifier {
     final lms = _normalizeLandmarks(pose.landmarks);
     PoseLandmark get(PoseLandmarkType t) => lms[t]!;
 
-    // Update elbow angle for calibration feedback
     final leftElbowAngle = _angle3D(
       get(PoseLandmarkType.leftWrist),
       get(PoseLandmarkType.leftElbow),
@@ -152,7 +154,6 @@ class PoseClassifier {
     );
     currentElbowAngle.value = (leftElbowAngle + rightElbowAngle) / 2;
 
-    // Distances (3D normalized)
     final distances = {
       'left_shoulder_left_wrist':
           _distance3D(get(PoseLandmarkType.leftShoulder), get(PoseLandmarkType.leftWrist)),
@@ -192,7 +193,6 @@ class PoseClassifier {
       ),
     };
 
-    // Angles (3D normalized)
     final angles = {
       'right_elbow_right_shoulder_right_hip':
           _angle3D(get(PoseLandmarkType.rightElbow), get(PoseLandmarkType.rightShoulder), get(PoseLandmarkType.rightHip)),
@@ -216,7 +216,7 @@ class PoseClassifier {
     return {...distances, ...angles};
   }
 
-  // --- Classification with threshold ---------------------------------------------------------------
+  // --- Classification with MediaPipe-style confidence -------------------------
 
   Future<Map<String, dynamic>> classifyPose(Pose pose) async {
     if (!_isModelLoaded || _classifier == null) {
@@ -228,10 +228,8 @@ class PoseClassifier {
     }
 
     try {
-      // Extract features
       final features = extractFeatures(pose);
       
-      // Create a DataFrame with the same column order as training data
       final featureList = [
         features['left_shoulder_left_wrist']!,
         features['right_shoulder_right_wrist']!,
@@ -258,61 +256,59 @@ class PoseClassifier {
         features['left_wrist_left_elbow_left_shoulder']!,
       ];
 
-      // Create DataFrame for prediction
       final testData = DataFrame([featureList], headerExists: false);
-      
-      // Get prediction with probabilities
-      final prediction = _classifier!.predict(testData);
       final probabilities = _classifier!.predictProbabilities(testData);
-      
-      // Extract results
-      final predictedClass = prediction.rows.first.first as num;
       final probRow = probabilities.rows.first.toList();
       
-      // Get confidence for each class
       double downProb = 0.0;
       double upProb = 0.0;
       
       for (var i = 0; i < probRow.length; i++) {
         final prob = (probRow[i] as num).toDouble();
         if (i == 0) {
-          downProb = prob; // Class 0 = down
+          downProb = prob;
         } else {
-          upProb = prob; // Class 1 = up
+          upProb = prob;
         }
       }
       
-      // Apply threshold adjustment for down position
-      // If down probability is above threshold, classify as down
-      // Otherwise, need higher confidence for up
-      String poseName;
-      double confidenceValue;
+      // Convert probabilities to confidence scores (0-10 scale like MediaPipe)
+      // Higher probability = higher confidence score
+      final rawDownConf = downProb * 10.0;
+      final rawUpConf = upProb * 10.0;
       
-      if (downProb >= downThreshold.value) {
+      // Apply EMA smoothing to reduce jitter
+      _smoothedDownConf = _emaAlpha * rawDownConf + (1 - _emaAlpha) * _smoothedDownConf;
+      _smoothedUpConf = _emaAlpha * rawUpConf + (1 - _emaAlpha) * _smoothedUpConf;
+      
+      // Update notifiers for visualization
+      downConfidence.value = _smoothedDownConf;
+      upConfidence.value = _smoothedUpConf;
+      
+      // Determine current pose based on which confidence is higher
+      String poseName;
+      double displayConfidence;
+      
+      if (_smoothedDownConf > _smoothedUpConf) {
         poseName = 'pushups_down';
-        confidenceValue = downProb;
-      } else if (upProb > downProb) {
-        poseName = 'pushups_up';
-        confidenceValue = upProb;
+        displayConfidence = downProb;
       } else {
-        // Default to predicted class if uncertain
-        poseName = predictedClass == 1 ? 'pushups_up' : 'pushups_down';
-        confidenceValue = predictedClass == 1 ? upProb : downProb;
+        poseName = 'pushups_up';
+        displayConfidence = upProb;
       }
-
-      // Update counters
-      _updatePushupCount(poseName);
+      
+      // Update the repetition counter (MediaPipe style)
+      _updateRepetitionCounter(_smoothedDownConf);
       
       // Update notifiers
-      currentPose.value = poseName;
-      confidence.value = confidenceValue;
+      currentPose.value = _poseEntered ? 'pushups_down' : 'pushups_up';
+      confidence.value = displayConfidence;
 
       return {
         'pose': poseName,
-        'confidence': confidenceValue,
-        'raw_prediction': predictedClass,
-        'down_prob': downProb,
-        'up_prob': upProb,
+        'confidence': displayConfidence,
+        'down_confidence': _smoothedDownConf,
+        'up_confidence': _smoothedUpConf,
       };
     } catch (e) {
       debugPrint('❌ Classification error: $e');
@@ -324,46 +320,68 @@ class PoseClassifier {
     }
   }
 
-  void _updatePushupCount(String currentPrediction) {
-    // Count a pushup when transitioning from down to up
-    if (_lastPrediction == 'pushups_down' && currentPrediction == 'pushups_up') {
+  // MediaPipe-style repetition counter
+  void _updateRepetitionCounter(double downConfidence) {
+    // If we're not in the pose, check if we're entering it
+    if (!_poseEntered) {
+      if (downConfidence > enterThreshold.value) {
+        _poseEntered = true;
+        debugPrint('⬇️ Entered DOWN position (conf: ${downConfidence.toStringAsFixed(1)})');
+      }
+      return;
+    }
+    
+    // If we're in the pose, check if we're exiting it
+    if (downConfidence < exitThreshold.value) {
       _pushupCount++;
       pushupCounter.value = _pushupCount;
-      debugPrint('💪 Pushup #$_pushupCount completed!');
+      _poseEntered = false;
+      debugPrint('💪 Pushup #$_pushupCount completed! (conf: ${downConfidence.toStringAsFixed(1)})');
     }
-    _lastPrediction = currentPrediction;
   }
 
   void resetCounter() {
     _pushupCount = 0;
     pushupCounter.value = 0;
-    _lastPrediction = '';
+    _poseEntered = false;
+    _smoothedDownConf = 0.0;
+    _smoothedUpConf = 0.0;
     debugPrint('🔄 Counter reset');
   }
   
-  void adjustThreshold(double value) {
-    downThreshold.value = value.clamp(0.1, 0.9);
-    debugPrint('🎚️ Down threshold adjusted to: ${downThreshold.value.toStringAsFixed(2)}');
+  void adjustEnterThreshold(double value) {
+    enterThreshold.value = value.clamp(1.0, 9.5);
+    // Ensure exit is always lower than enter
+    if (exitThreshold.value >= enterThreshold.value) {
+      exitThreshold.value = enterThreshold.value - 0.5;
+    }
+    debugPrint('🎚️ Enter threshold: ${enterThreshold.value.toStringAsFixed(1)}');
   }
-
-  // --- Processing and Logging ---------------------------------------------------------------
+  
+  void adjustExitThreshold(double value) {
+    exitThreshold.value = value.clamp(0.5, 9.0);
+    // Ensure exit is always lower than enter
+    if (exitThreshold.value >= enterThreshold.value) {
+      enterThreshold.value = exitThreshold.value + 0.5;
+    }
+    debugPrint('🎚️ Exit threshold: ${exitThreshold.value.toStringAsFixed(1)}');
+  }
 
   Future<void> processAndClassify(Pose pose) async {
     _frameCount++;
     if (_frameCount % logEveryXFrames != 0) return;
 
-    final result = await classifyPose(pose);
-    
-    if (_frameCount % (logEveryXFrames * 3) == 0) {
-      debugPrint('🧠 Frame $_frameCount: ${result['pose']} (${(result['confidence'] * 100).toStringAsFixed(1)}%)');
-    }
+    await classifyPose(pose);
   }
 
   void dispose() {
     pushupCounter.dispose();
     currentPose.dispose();
     confidence.dispose();
-    downThreshold.dispose();
+    enterThreshold.dispose();
+    exitThreshold.dispose();
+    downConfidence.dispose();
+    upConfidence.dispose();
     currentElbowAngle.dispose();
   }
 }

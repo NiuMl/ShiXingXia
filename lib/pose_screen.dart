@@ -25,7 +25,7 @@ class _PoseScreenState extends State<PoseScreen> {
   final ValueNotifier<List<Map<String, dynamic>>> _keyPoints =
       ValueNotifier<List<Map<String, dynamic>>>([]);
 
-  final PoseClassifier _poseClassifier = PoseClassifier(logEveryXFrames: 15);
+  final PoseClassifier _poseClassifier = PoseClassifier(logEveryXFrames: 1);
 
   @override
   void initState() {
@@ -34,13 +34,10 @@ class _PoseScreenState extends State<PoseScreen> {
   }
 
   Future<void> _initializeApp() async {
-    // Load KNN model first
     await _poseClassifier.loadModel();
     setState(() {
       _isModelLoading = false;
     });
-    
-    // Then initialize camera
     await _initCamera();
   }
 
@@ -83,7 +80,6 @@ class _PoseScreenState extends State<PoseScreen> {
         return;
       }
 
-      // 🧠 Classify pose using KNN
       await _poseClassifier.processAndClassify(poses.first);
 
       final List<Map<String, dynamic>> list = [];
@@ -303,318 +299,571 @@ class _PoseScreenState extends State<PoseScreen> {
             ),
           ),
           
-          // Calibrator panel (slides in from left)
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            left: _showCalibrator ? 0 : -300,
-            top: 0,
-            bottom: 0,
-            width: 280,
+          // Confidence visualization (bottom left)
+          Positioned(
+            bottom: 32,
+            left: 16,
             child: Container(
+              width: 160,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.85),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
-                ),
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(12),
               ),
-              padding: const EdgeInsets.all(20),
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Sensitivity',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Confidence',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Adjust how low you need to go',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white60,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    ValueListenableBuilder<double>(
-                      valueListenable: _poseClassifier.downThreshold,
-                      builder: (context, threshold, _) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Down Threshold',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                Text(
-                                  '${(threshold * 100).toInt()}%',
-                                  style: const TextStyle(
-                                    color: Colors.orangeAccent,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            SliderTheme(
-                              data: SliderThemeData(
-                                activeTrackColor: Colors.orangeAccent,
-                                inactiveTrackColor: Colors.white24,
-                                thumbColor: Colors.orangeAccent,
-                                overlayColor: Colors.orangeAccent.withOpacity(0.2),
-                              ),
-                              child: Slider(
-                                value: threshold,
-                                min: 0.1,
-                                max: 0.9,
-                                divisions: 16,
-                                onChanged: (value) {
-                                  _poseClassifier.adjustThreshold(value);
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Easier',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                                Text(
-                                  'Harder',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    
-                    const SizedBox(height: 32),
-                    const Divider(color: Colors.white24),
-                    const SizedBox(height: 16),
-                    
-                    // Real-time feedback
-                    const Text(
-                      'Live Feedback',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    ValueListenableBuilder<double>(
-                      valueListenable: _poseClassifier.currentElbowAngle,
-                      builder: (context, angle, _) {
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
+                  ),
+                  const SizedBox(height: 8),
+                  // Down confidence
+                  ValueListenableBuilder<double>(
+                    valueListenable: _poseClassifier.downConfidence,
+                    builder: (context, downConf, _) {
+                      return ValueListenableBuilder<double>(
+                        valueListenable: _poseClassifier.enterThreshold,
+                        builder: (context, enterThresh, _) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    'Elbow Angle',
+                                    '↓ DOWN',
                                     style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13,
+                                      color: Colors.orangeAccent,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   Text(
-                                    '${angle.toStringAsFixed(0)}°',
+                                    downConf.toStringAsFixed(1),
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: (angle / 180).clamp(0.0, 1.0),
-                                  backgroundColor: Colors.white24,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    angle < 90 
-                                        ? Colors.greenAccent 
-                                        : angle < 140 
-                                            ? Colors.orangeAccent 
-                                            : Colors.redAccent,
+                              const SizedBox(height: 4),
+                              Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: (downConf / 10).clamp(0.0, 1.0),
+                                      backgroundColor: Colors.white24,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        downConf >= enterThresh
+                                            ? Colors.greenAccent
+                                            : Colors.orangeAccent,
+                                      ),
+                                      minHeight: 8,
+                                    ),
                                   ),
-                                  minHeight: 8,
+                                  // Threshold indicator
+                                  Positioned(
+                                    left: (enterThresh / 10 * 136).clamp(0.0, 136.0),
+                                    child: Container(
+                                      width: 2,
+                                      height: 8,
+                                      color: Colors.white.withOpacity(0.7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  // Up confidence
+                  ValueListenableBuilder<double>(
+                    valueListenable: _poseClassifier.upConfidence,
+                    builder: (context, upConf, _) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '↑ UP',
+                                style: TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                upConf.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Quick presets
-                    const Text(
-                      'Quick Presets',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _PresetButton(
-                          label: 'Easy',
-                          value: 0.3,
-                          onTap: () => _poseClassifier.adjustThreshold(0.3),
-                        ),
-                        _PresetButton(
-                          label: 'Normal',
-                          value: 0.5,
-                          onTap: () => _poseClassifier.adjustThreshold(0.5),
-                        ),
-                        _PresetButton(
-                          label: 'Hard',
-                          value: 0.7,
-                          onTap: () => _poseClassifier.adjustThreshold(0.7),
-                        ),
-                      ],
-                    ),
-                    
-                    const Spacer(),
-                    
-                    // Help text
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue.withOpacity(0.3),
-                        ),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.lightBlueAccent,
-                            size: 18,
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Lower threshold = easier to count pushups',
-                              style: TextStyle(
-                                color: Colors.lightBlueAccent,
-                                fontSize: 11,
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: (upConf / 10).clamp(0.0, 1.0),
+                              backgroundColor: Colors.white24,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.greenAccent,
                               ),
+                              minHeight: 8,
                             ),
                           ),
                         ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Calibrator panel
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            right: _showCalibrator ? 0 : -320,
+            top: 0,
+            bottom: 0,
+            width: 300,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.9),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 20,
+                    offset: const Offset(-5, 0),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(20),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Calibration',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Adjust thresholds for counting',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white60,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      
+                      // Enter threshold
+                      ValueListenableBuilder<double>(
+                        valueListenable: _poseClassifier.enterThreshold,
+                        builder: (context, threshold, _) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Enter Threshold',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Go down',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orangeAccent.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      threshold.toStringAsFixed(1),
+                                      style: const TextStyle(
+                                        color: Colors.orangeAccent,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              SliderTheme(
+                                data: SliderThemeData(
+                                  activeTrackColor: Colors.orangeAccent,
+                                  inactiveTrackColor: Colors.white24,
+                                  thumbColor: Colors.orangeAccent,
+                                  overlayColor: Colors.orangeAccent.withOpacity(0.2),
+                                ),
+                                child: Slider(
+                                  value: threshold,
+                                  min: 1.0,
+                                  max: 9.5,
+                                  divisions: 17,
+                                  onChanged: (value) {
+                                    _poseClassifier.adjustEnterThreshold(value);
+                                  },
+                                ),
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Easy (1.0)',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.5),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Hard (9.5)',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.5),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Exit threshold
+                      ValueListenableBuilder<double>(
+                        valueListenable: _poseClassifier.exitThreshold,
+                        builder: (context, threshold, _) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Exit Threshold',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Push up',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.greenAccent.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      threshold.toStringAsFixed(1),
+                                      style: const TextStyle(
+                                        color: Colors.greenAccent,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              SliderTheme(
+                                data: SliderThemeData(
+                                  activeTrackColor: Colors.greenAccent,
+                                  inactiveTrackColor: Colors.white24,
+                                  thumbColor: Colors.greenAccent,
+                                  overlayColor: Colors.greenAccent.withOpacity(0.2),
+                                ),
+                                child: Slider(
+                                  value: threshold,
+                                  min: 0.5,
+                                  max: 9.0,
+                                  divisions: 17,
+                                  onChanged: (value) {
+                                    _poseClassifier.adjustExitThreshold(value);
+                                  },
+                                ),
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Fast (0.5)',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.5),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Slow (9.0)',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.5),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      const Divider(color: Colors.white24),
+                      const SizedBox(height: 16),
+                      
+                      // Elbow angle feedback
+                      const Text(
+                        'Form Feedback',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      ValueListenableBuilder<double>(
+                        valueListenable: _poseClassifier.currentElbowAngle,
+                        builder: (context, angle, _) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Elbow Angle',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${angle.toStringAsFixed(0)}°',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: (angle / 180).clamp(0.0, 1.0),
+                                    backgroundColor: Colors.white24,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      angle < 90 
+                                          ? Colors.greenAccent 
+                                          : angle < 140 
+                                              ? Colors.orangeAccent 
+                                              : Colors.redAccent,
+                                    ),
+                                    minHeight: 8,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Quick presets
+                      const Text(
+                        'Quick Presets',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      _PresetButton(
+                        label: 'Beginner',
+                        description: 'Enter: 4.0 | Exit: 2.0',
+                        onTap: () {
+                          _poseClassifier.adjustEnterThreshold(4.0);
+                          _poseClassifier.adjustExitThreshold(2.0);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      _PresetButton(
+                        label: 'Normal',
+                        description: 'Enter: 6.0 | Exit: 4.0',
+                        onTap: () {
+                          _poseClassifier.adjustEnterThreshold(6.0);
+                          _poseClassifier.adjustExitThreshold(4.0);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      _PresetButton(
+                        label: 'Strict',
+                        description: 'Enter: 7.5 | Exit: 5.5',
+                        onTap: () {
+                          _poseClassifier.adjustEnterThreshold(7.5);
+                          _poseClassifier.adjustExitThreshold(5.5);
+                        },
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Help section
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.blue.withOpacity(0.3),
+                          ),
+                        ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.lightBlueAccent,
+                                  size: 16,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'How it works',
+                                  style: TextStyle(
+                                    color: Colors.lightBlueAccent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              '• Enter: Must exceed to enter DOWN\n'
+                              '• Exit: Must drop below to count rep\n'
+                              '• Larger gap = more stable counting',
+                              style: TextStyle(
+                                color: Colors.lightBlue,
+                                fontSize: 11,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
           
-          // Current pose indicator
+          // Current pose indicator (bottom right)
           Positioned(
             bottom: 32,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ValueListenableBuilder<String>(
-                      valueListenable: _poseClassifier.currentPose,
-                      builder: (context, pose, _) {
-                        final isUp = pose == 'pushups_up';
-                        final isDown = pose == 'pushups_down';
-                        return Row(
-                          children: [
-                            Icon(
-                              isUp ? Icons.arrow_upward : 
-                              isDown ? Icons.arrow_downward : 
-                              Icons.help_outline,
-                              color: isUp ? Colors.greenAccent : 
-                                     isDown ? Colors.orangeAccent : 
-                                     Colors.grey,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              pose == 'pushups_up' ? 'UP' :
-                              pose == 'pushups_down' ? 'DOWN' :
-                              pose.toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: isUp ? Colors.greenAccent : 
-                                       isDown ? Colors.orangeAccent : 
-                                       Colors.white70,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 16),
-                    ValueListenableBuilder<double>(
-                      valueListenable: _poseClassifier.confidence,
-                      builder: (context, conf, _) {
-                        return Text(
-                          '${(conf * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: ValueListenableBuilder<String>(
+                valueListenable: _poseClassifier.currentPose,
+                builder: (context, pose, _) {
+                  final isDown = pose == 'pushups_down';
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isDown ? Icons.arrow_downward : Icons.arrow_upward,
+                        color: isDown ? Colors.orangeAccent : Colors.greenAccent,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isDown ? 'DOWN' : 'UP',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDown ? Colors.orangeAccent : Colors.greenAccent,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -626,12 +875,12 @@ class _PoseScreenState extends State<PoseScreen> {
 
 class _PresetButton extends StatelessWidget {
   final String label;
-  final double value;
+  final String description;
   final VoidCallback onTap;
 
   const _PresetButton({
     required this.label,
-    required this.value,
+    required this.description,
     required this.onTap,
   });
 
@@ -641,21 +890,34 @@ class _PresetButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
+          color: Colors.white.withOpacity(0.08),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: Colors.white.withOpacity(0.2),
           ),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              description,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 10,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -17,6 +17,12 @@ class PoseClassifier {
   final ValueNotifier<int> pushupCounter = ValueNotifier<int>(0);
   final ValueNotifier<String> currentPose = ValueNotifier<String>('unknown');
   final ValueNotifier<double> confidence = ValueNotifier<double>(0.0);
+  
+  // Threshold calibration - adjusts how confident we need to be for "down" position
+  final ValueNotifier<double> downThreshold = ValueNotifier<double>(0.5);
+  
+  // Track raw elbow angle for calibration feedback
+  final ValueNotifier<double> currentElbowAngle = ValueNotifier<double>(0.0);
 
   PoseClassifier({this.logEveryXFrames = 10});
 
@@ -133,6 +139,19 @@ class PoseClassifier {
     final lms = _normalizeLandmarks(pose.landmarks);
     PoseLandmark get(PoseLandmarkType t) => lms[t]!;
 
+    // Update elbow angle for calibration feedback
+    final leftElbowAngle = _angle3D(
+      get(PoseLandmarkType.leftWrist),
+      get(PoseLandmarkType.leftElbow),
+      get(PoseLandmarkType.leftShoulder)
+    );
+    final rightElbowAngle = _angle3D(
+      get(PoseLandmarkType.rightWrist),
+      get(PoseLandmarkType.rightElbow),
+      get(PoseLandmarkType.rightShoulder)
+    );
+    currentElbowAngle.value = (leftElbowAngle + rightElbowAngle) / 2;
+
     // Distances (3D normalized)
     final distances = {
       'left_shoulder_left_wrist':
@@ -197,7 +216,7 @@ class PoseClassifier {
     return {...distances, ...angles};
   }
 
-  // --- Classification ---------------------------------------------------------------
+  // --- Classification with threshold ---------------------------------------------------------------
 
   Future<Map<String, dynamic>> classifyPose(Pose pose) async {
     if (!_isModelLoaded || _classifier == null) {
@@ -248,18 +267,38 @@ class PoseClassifier {
       
       // Extract results
       final predictedClass = prediction.rows.first.first as num;
-      final poseName = predictedClass == 1 ? 'pushups_up' : 'pushups_down';
-      
-      // Get confidence (max probability) - FIXED
       final probRow = probabilities.rows.first.toList();
-      double maxProb = 0.0;
-      for (var prob in probRow) {
-        final probValue = (prob as num).toDouble();
-        if (probValue > maxProb) {
-          maxProb = probValue;
+      
+      // Get confidence for each class
+      double downProb = 0.0;
+      double upProb = 0.0;
+      
+      for (var i = 0; i < probRow.length; i++) {
+        final prob = (probRow[i] as num).toDouble();
+        if (i == 0) {
+          downProb = prob; // Class 0 = down
+        } else {
+          upProb = prob; // Class 1 = up
         }
       }
-      final confidenceValue = maxProb;
+      
+      // Apply threshold adjustment for down position
+      // If down probability is above threshold, classify as down
+      // Otherwise, need higher confidence for up
+      String poseName;
+      double confidenceValue;
+      
+      if (downProb >= downThreshold.value) {
+        poseName = 'pushups_down';
+        confidenceValue = downProb;
+      } else if (upProb > downProb) {
+        poseName = 'pushups_up';
+        confidenceValue = upProb;
+      } else {
+        // Default to predicted class if uncertain
+        poseName = predictedClass == 1 ? 'pushups_up' : 'pushups_down';
+        confidenceValue = predictedClass == 1 ? upProb : downProb;
+      }
 
       // Update counters
       _updatePushupCount(poseName);
@@ -272,6 +311,8 @@ class PoseClassifier {
         'pose': poseName,
         'confidence': confidenceValue,
         'raw_prediction': predictedClass,
+        'down_prob': downProb,
+        'up_prob': upProb,
       };
     } catch (e) {
       debugPrint('❌ Classification error: $e');
@@ -299,6 +340,11 @@ class PoseClassifier {
     _lastPrediction = '';
     debugPrint('🔄 Counter reset');
   }
+  
+  void adjustThreshold(double value) {
+    downThreshold.value = value.clamp(0.1, 0.9);
+    debugPrint('🎚️ Down threshold adjusted to: ${downThreshold.value.toStringAsFixed(2)}');
+  }
 
   // --- Processing and Logging ---------------------------------------------------------------
 
@@ -308,7 +354,7 @@ class PoseClassifier {
 
     final result = await classifyPose(pose);
     
-    if (_frameCount % (logEveryXFrames * 3) == 0) { // Less frequent detailed logging
+    if (_frameCount % (logEveryXFrames * 3) == 0) {
       debugPrint('🧠 Frame $_frameCount: ${result['pose']} (${(result['confidence'] * 100).toStringAsFixed(1)}%)');
     }
   }
@@ -317,5 +363,7 @@ class PoseClassifier {
     pushupCounter.dispose();
     currentPose.dispose();
     confidence.dispose();
+    downThreshold.dispose();
+    currentElbowAngle.dispose();
   }
 }

@@ -29,10 +29,18 @@ class PoseClassifier {
   // Track raw elbow angle for calibration feedback
   final ValueNotifier<double> currentElbowAngle = ValueNotifier<double>(0.0);
   
+  // Track body angle for horizontal position check
+  final ValueNotifier<double> currentBodyAngle = ValueNotifier<double>(0.0);
+  final ValueNotifier<bool> isHorizontal = ValueNotifier<bool>(false);
+  
   // EMA smoothing for confidence scores
   double _smoothedDownConf = 0.0;
   double _smoothedUpConf = 0.0;
   final double _emaAlpha = 0.3; // Smoothing factor
+  
+  // Horizontal position thresholds
+  final double horizontalAngleMin = 0.0;   // Minimum angle (perfectly horizontal)
+  final double horizontalAngleMax = 45.0;  // Maximum angle (slight incline/decline allowed)
 
   PoseClassifier({this.logEveryXFrames = 1});
 
@@ -90,6 +98,51 @@ class PoseClassifier {
     final magCB = sqrt(cb[0]*cb[0] + cb[1]*cb[1] + cb[2]*cb[2]);
     if (magAB == 0 || magCB == 0) return 0;
     return acos((dot / (magAB * magCB)).clamp(-1.0, 1.0)) * 180 / pi;
+  }
+
+  // --- Check if body is in horizontal position -------------------------------
+  
+  bool _isBodyHorizontal(Map<PoseLandmarkType, PoseLandmark> lms) {
+    // Calculate the angle between shoulders-hips line and horizontal plane
+    // Using Y-axis difference to determine verticality
+    
+    final leftShoulder = lms[PoseLandmarkType.leftShoulder]!;
+    final rightShoulder = lms[PoseLandmarkType.rightShoulder]!;
+    final leftHip = lms[PoseLandmarkType.leftHip]!;
+    final rightHip = lms[PoseLandmarkType.rightHip]!;
+    
+    // Average shoulder and hip positions
+    final shoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+    final hipY = (leftHip.y + rightHip.y) / 2;
+    
+    // Calculate body line length (torso)
+    final bodyLength = _distance3D(
+      _avgLandmarks([leftShoulder, rightShoulder]),
+      _avgLandmarks([leftHip, rightHip]),
+    );
+    
+    if (bodyLength == 0) return false;
+    
+    // Calculate vertical distance between shoulders and hips
+    final verticalDist = (shoulderY - hipY).abs();
+    
+    // Calculate angle from horizontal (0° = horizontal, 90° = vertical)
+    // arcsin(vertical_distance / body_length) gives us the angle
+    final angleFromHorizontal = asin((verticalDist / bodyLength).clamp(0.0, 1.0)) * 180 / pi;
+    
+    currentBodyAngle.value = angleFromHorizontal;
+    
+    // Check if body is within horizontal threshold
+    final horizontal = angleFromHorizontal >= horizontalAngleMin && 
+                      angleFromHorizontal <= horizontalAngleMax;
+    
+    isHorizontal.value = horizontal;
+    
+    if (!horizontal) {
+      debugPrint('⚠️ Not horizontal: ${angleFromHorizontal.toStringAsFixed(1)}° (need ${horizontalAngleMin.toStringAsFixed(0)}°-${horizontalAngleMax.toStringAsFixed(0)}°)');
+    }
+    
+    return horizontal;
   }
 
   // --- MediaPipe-style normalization -----------------------------------------
@@ -228,6 +281,31 @@ class PoseClassifier {
     }
 
     try {
+      // CRITICAL: Check if body is in horizontal position FIRST
+      final isHorizontalPosition = _isBodyHorizontal(pose.landmarks);
+      
+      // If not horizontal, reset state and don't count
+      if (!isHorizontalPosition) {
+        // Reset the pose entered state to prevent counting when user stands up
+        if (_poseEntered) {
+          debugPrint('❌ Lost horizontal position - resetting state');
+          _poseEntered = false;
+        }
+        
+        // Set confidence to zero to show we're not tracking
+        downConfidence.value = 0.0;
+        upConfidence.value = 0.0;
+        currentPose.value = 'not_horizontal';
+        
+        return {
+          'pose': 'not_horizontal',
+          'confidence': 0.0,
+          'down_confidence': 0.0,
+          'up_confidence': 0.0,
+          'error': 'Body not in horizontal position',
+        };
+      }
+      
       final features = extractFeatures(pose);
       
       final featureList = [
@@ -297,7 +375,7 @@ class PoseClassifier {
         displayConfidence = upProb;
       }
       
-      // Update the repetition counter (MediaPipe style)
+      // Update the repetition counter (MediaPipe style) - only if horizontal
       _updateRepetitionCounter(_smoothedDownConf);
       
       // Update notifiers
@@ -383,5 +461,7 @@ class PoseClassifier {
     downConfidence.dispose();
     upConfidence.dispose();
     currentElbowAngle.dispose();
+    currentBodyAngle.dispose();
+    isHorizontal.dispose();
   }
 }

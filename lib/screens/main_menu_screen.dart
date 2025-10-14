@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/exercise_config.dart';
 import 'exercise_screen.dart';
+import 'app_blocker_settings_screen.dart';
 
 class MainMenuScreen extends StatelessWidget {
   const MainMenuScreen({super.key});
@@ -11,6 +12,19 @@ class MainMenuScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('GetFit'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AppBlockerSettingsScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(

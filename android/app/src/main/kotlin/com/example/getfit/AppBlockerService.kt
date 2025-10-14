@@ -1,0 +1,161 @@
+package com.example.getfit
+
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Intent
+import android.graphics.PixelFormat
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.View
+import android.view.WindowManager
+import android.view.accessibility.AccessibilityEvent
+import android.widget.Button
+import android.widget.TextView
+
+class AppBlockerService : AccessibilityService() {
+    private var overlayView: View? = null
+    private var windowManager: WindowManager? = null
+    private var blockedApps: Set<String> = emptySet()
+    private var isBlocking = false
+
+    companion object {
+        private var instance: AppBlockerService? = null
+
+        fun getInstance(): AppBlockerService? = instance
+
+        fun updateBlockedApps(apps: Set<String>) {
+            instance?.blockedApps = apps
+        }
+
+        fun setBlockingEnabled(enabled: Boolean) {
+            instance?.isBlocking = enabled
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val packageName = event.packageName?.toString() ?: return
+
+            // Don't block our own app
+            if (packageName == this.packageName) {
+                removeOverlay()
+                return
+            }
+
+            // Check if the app should be blocked
+            if (isBlocking && blockedApps.contains(packageName)) {
+                showBlockOverlay(packageName)
+            } else {
+                removeOverlay()
+            }
+        }
+    }
+
+    private fun showBlockOverlay(packageName: String) {
+        if (overlayView != null) {
+            // Update existing overlay
+            updateOverlayContent(packageName)
+            return
+        }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        )
+
+        params.gravity = Gravity.CENTER
+
+        overlayView = createOverlayView(packageName)
+
+        try {
+            windowManager?.addView(overlayView, params)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun createOverlayView(packageName: String): View {
+        val inflater = LayoutInflater.from(this)
+        val view = inflater.inflate(R.layout.block_overlay, null)
+
+        val appNameTextView = view.findViewById<TextView>(R.id.blockedAppName)
+        val messageTextView = view.findViewById<TextView>(R.id.blockMessage)
+        val closeButton = view.findViewById<Button>(R.id.closeButton)
+
+        val appName = getAppName(packageName)
+        appNameTextView.text = appName
+        messageTextView.text = "This app is blocked. Complete exercises to earn screen time!"
+
+        closeButton.setOnClickListener {
+            // Return to home screen
+            val startMain = Intent(Intent.ACTION_MAIN)
+            startMain.addCategory(Intent.CATEGORY_HOME)
+            startMain.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(startMain)
+        }
+
+        return view
+    }
+
+    private fun updateOverlayContent(packageName: String) {
+        overlayView?.let { view ->
+            val appNameTextView = view.findViewById<TextView>(R.id.blockedAppName)
+            val appName = getAppName(packageName)
+            appNameTextView.text = appName
+        }
+    }
+
+    private fun getAppName(packageName: String): String {
+        return try {
+            val pm = packageManager
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            pm.getApplicationLabel(appInfo).toString()
+        } catch (e: Exception) {
+            packageName
+        }
+    }
+
+    private fun removeOverlay() {
+        overlayView?.let {
+            try {
+                windowManager?.removeView(it)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            overlayView = null
+        }
+    }
+
+    override fun onInterrupt() {
+        removeOverlay()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        removeOverlay()
+        instance = null
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+
+        val info = AccessibilityServiceInfo()
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+        info.flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+        info.notificationTimeout = 100
+
+        serviceInfo = info
+    }
+}

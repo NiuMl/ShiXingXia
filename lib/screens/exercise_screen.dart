@@ -8,6 +8,7 @@ import '../models/exercise_config.dart';
 import '../classifiers/base_exercise_classifier.dart';
 import '../classifiers/exercise_classifier_factory.dart';
 import '../widgets/pose_painter_mlkit.dart';
+import '../services/time_tracking_service.dart';
 
 class ExerciseScreen extends StatefulWidget {
   final ExerciseConfig exerciseConfig;
@@ -157,6 +158,12 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   @override
   void dispose() {
+    // Award earned minutes before disposing
+    final repCount = _classifier.repetitionCounter.value;
+    if (repCount > 0) {
+      TimeTrackingService().addEarnedMinutes(repCount);
+    }
+
     _controller?.dispose();
     _detector.close();
     _keyPoints.dispose();
@@ -189,10 +196,19 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.exerciseConfig.displayName} Counter'),
-        actions: [
+    return WillPopScope(
+      onWillPop: () async {
+        // Award earned minutes when user navigates back
+        final repCount = _classifier.repetitionCounter.value;
+        if (repCount > 0) {
+          await TimeTrackingService().addEarnedMinutes(repCount);
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('${widget.exerciseConfig.displayName} Counter'),
+          actions: [
           IconButton(
             icon: Icon(_showCalibrator ? Icons.tune : Icons.tune_outlined),
             onPressed: () {
@@ -904,6 +920,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

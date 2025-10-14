@@ -19,6 +19,7 @@ class AppBlockerService : AccessibilityService() {
     private var windowManager: WindowManager? = null
     private var blockedApps: Set<String> = emptySet()
     private var isBlocking = false
+    private var currentBlockedPackage: String? = null
 
     companion object {
         private const val TAG = "AppBlockerService"
@@ -73,27 +74,67 @@ class AppBlockerService : AccessibilityService() {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val packageName = event.packageName?.toString() ?: return
 
-            // Don't block our own app
-            if (packageName == this.packageName) {
+            Log.d(TAG, "Window state changed: $packageName (currentBlocked=$currentBlockedPackage)")
+
+            // Check if the app should be blocked
+            if (isBlocking && blockedApps.contains(packageName)) {
+                Log.d(TAG, "App is blocked, showing overlay: $packageName")
+                currentBlockedPackage = packageName
+                showBlockOverlay(packageName)
+                return
+            }
+
+            // If it's our own app briefly appearing (e.g., when overlay button launches home intent)
+            // Don't remove the overlay - wait for the actual target app
+            if (packageName == this.packageName && currentBlockedPackage != null) {
+                Log.d(TAG, "Our app briefly appeared, keeping overlay for: $currentBlockedPackage")
+                return
+            }
+
+            // If switching to launcher or home screen, clear the block
+            if (packageName == "com.android.launcher" ||
+                packageName == "com.android.launcher3" ||
+                packageName.contains("launcher") ||
+                packageName.contains("home")) {
+                Log.d(TAG, "Switched to launcher/home, removing overlay")
+                currentBlockedPackage = null
                 removeOverlay()
                 return
             }
 
-            // Check if the app should be blocked
-            if (isBlocking && blockedApps.contains(packageName)) {
-                showBlockOverlay(packageName)
-            } else {
+            // If it's our own app and no blocked app is tracked, clear overlay
+            if (packageName == this.packageName) {
+                Log.d(TAG, "Our app in foreground, removing overlay")
+                currentBlockedPackage = null
                 removeOverlay()
+                return
             }
+
+            // Different app that's not blocked
+            // This is a legitimate switch to another app
+            if (currentBlockedPackage != null) {
+                Log.d(TAG, "Switched to non-blocked app: $packageName, clearing block state")
+            }
+            currentBlockedPackage = null
+            removeOverlay()
         }
     }
 
     private fun showBlockOverlay(packageName: String) {
         if (overlayView != null) {
-            // Update existing overlay
+            // Update existing overlay and ensure it's on top
             updateOverlayContent(packageName)
+            try {
+                // Bring the overlay back to the front
+                overlayView?.bringToFront()
+                Log.d(TAG, "Brought overlay to front")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error bringing overlay to front", e)
+            }
             return
         }
+
+        Log.d(TAG, "Creating overlay for: $packageName")
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -111,8 +152,9 @@ class AppBlockerService : AccessibilityService() {
 
         try {
             windowManager?.addView(overlayView, params)
+            Log.d(TAG, "Overlay added successfully")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error adding overlay", e)
         }
     }
 

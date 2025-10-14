@@ -57,21 +57,9 @@ abstract class BaseExerciseClassifier {
       debugPrint('🔄 Loading KNN model for ${config.displayName}...');
 
       final csvContent = await rootBundle.loadString(config.assetPath);
-      final trainData = DataFrame.fromRawCsv(
-        csvContent,
-        headerExists: true,
-        fieldDelimiter: ',',
-      );
 
-      debugPrint('✅ Training data loaded: ${trainData.rows.length} samples');
-
-      _classifier = KnnClassifier(
-        trainData,
-        'pose',
-        3,
-        kernel: KernelType.gaussian,
-        distance: Distance.euclidean,
-      );
+      // Run the expensive KNN training in a separate isolate to avoid blocking UI
+      _classifier = await compute(_trainKnnModel, csvContent);
 
       _isModelLoaded = true;
       debugPrint('✅ KNN model trained and ready for ${config.displayName}!');
@@ -79,6 +67,23 @@ abstract class BaseExerciseClassifier {
       debugPrint('❌ Error loading model for ${config.displayName}: $e');
       _isModelLoaded = false;
     }
+  }
+
+  /// Trains KNN model in a separate isolate
+  static KnnClassifier _trainKnnModel(String csvContent) {
+    final trainData = DataFrame.fromRawCsv(
+      csvContent,
+      headerExists: true,
+      fieldDelimiter: ',',
+    );
+
+    return KnnClassifier(
+      trainData,
+      'pose',
+      3,
+      kernel: KernelType.gaussian,
+      distance: Distance.euclidean,
+    );
   }
 
   // --- Core 3D helpers --------------------------------------------------------

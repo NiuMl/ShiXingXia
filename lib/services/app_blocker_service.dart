@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppInfo {
   final String packageName;
@@ -23,6 +24,8 @@ class AppInfo {
 
 class AppBlockerService {
   static const MethodChannel _channel = MethodChannel('com.example.getfit/app_blocker');
+  static const String _keyBlockedApps = 'blocked_apps';
+  static const String _keyBlockingEnabled = 'blocking_enabled';
 
   /// Check if the accessibility service is enabled
   Future<bool> isAccessibilityServiceEnabled() async {
@@ -48,6 +51,9 @@ class AppBlockerService {
   Future<void> setBlockedApps(List<String> packageNames) async {
     try {
       await _channel.invokeMethod('setBlockedApps', {'apps': packageNames});
+      // Save to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_keyBlockedApps, packageNames);
     } on PlatformException catch (e) {
       print("Error setting blocked apps: ${e.message}");
     }
@@ -57,6 +63,9 @@ class AppBlockerService {
   Future<void> setBlockingEnabled(bool enabled) async {
     try {
       await _channel.invokeMethod('setBlockingEnabled', {'enabled': enabled});
+      // Save to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyBlockingEnabled, enabled);
     } on PlatformException catch (e) {
       print("Error setting blocking enabled: ${e.message}");
     }
@@ -71,5 +80,38 @@ class AppBlockerService {
       print("Error getting installed apps: ${e.message}");
       return [];
     }
+  }
+
+  /// Load saved blocked apps from storage
+  Future<List<String>> getSavedBlockedApps() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getStringList(_keyBlockedApps) ?? [];
+    } catch (e) {
+      print("Error loading blocked apps: $e");
+      return [];
+    }
+  }
+
+  /// Load saved blocking enabled state
+  Future<bool> getSavedBlockingEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_keyBlockingEnabled) ?? false;
+    } catch (e) {
+      print("Error loading blocking enabled: $e");
+      return false;
+    }
+  }
+
+  /// Restore saved settings (call on app start)
+  Future<void> restoreSavedSettings() async {
+    final blockedApps = await getSavedBlockedApps();
+    final blockingEnabled = await getSavedBlockingEnabled();
+
+    if (blockedApps.isNotEmpty) {
+      await _channel.invokeMethod('setBlockedApps', {'apps': blockedApps});
+    }
+    await _channel.invokeMethod('setBlockingEnabled', {'enabled': blockingEnabled});
   }
 }

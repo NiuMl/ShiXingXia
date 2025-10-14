@@ -1,5 +1,6 @@
 package com.example.getfit
 
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.annotation.NonNull
@@ -9,6 +10,9 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.getfit/app_blocker"
+    private val PREFS_NAME = "app_blocker_prefs"
+    private val KEY_BLOCKED_APPS = "blocked_apps"
+    private val KEY_BLOCKING_ENABLED = "blocking_enabled"
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -26,6 +30,11 @@ class MainActivity : FlutterActivity() {
                 "setBlockedApps" -> {
                     val apps = call.argument<List<String>>("apps")
                     if (apps != null) {
+                        // Save to SharedPreferences
+                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        prefs.edit().putStringSet(KEY_BLOCKED_APPS, apps.toSet()).apply()
+
+                        // Update the service if it's running
                         AppBlockerService.updateBlockedApps(apps.toSet())
                         result.success(null)
                     } else {
@@ -35,6 +44,11 @@ class MainActivity : FlutterActivity() {
                 "setBlockingEnabled" -> {
                     val enabled = call.argument<Boolean>("enabled")
                     if (enabled != null) {
+                        // Save to SharedPreferences
+                        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean(KEY_BLOCKING_ENABLED, enabled).apply()
+
+                        // Update the service if it's running
                         AppBlockerService.setBlockingEnabled(enabled)
                         result.success(null)
                     } else {

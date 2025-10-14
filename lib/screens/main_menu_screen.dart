@@ -1,10 +1,36 @@
 import 'package:flutter/material.dart';
 import '../models/exercise_config.dart';
+import '../services/time_tracking_service.dart';
+import '../widgets/time_circle_widget.dart';
 import 'exercise_screen.dart';
 import 'app_blocker_settings_screen.dart';
 
-class MainMenuScreen extends StatelessWidget {
+class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
+
+  @override
+  State<MainMenuScreen> createState() => _MainMenuScreenState();
+}
+
+class _MainMenuScreenState extends State<MainMenuScreen> {
+  final TimeTrackingService _timeService = TimeTrackingService();
+  int _earnedMinutes = 0;
+  int _spentMinutes = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTimeData();
+  }
+
+  Future<void> _loadTimeData() async {
+    final earned = await _timeService.getEarnedMinutes();
+    final spent = await _timeService.getSpentMinutes();
+    setState(() {
+      _earnedMinutes = earned;
+      _spentMinutes = spent;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,13 +41,15 @@ class MainMenuScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => const AppBlockerSettingsScreen(),
                 ),
               );
+              // Reload data when returning from settings
+              _loadTimeData();
             },
           ),
         ],
@@ -38,30 +66,57 @@ class MainMenuScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ListView.builder(
-              itemCount: ExerciseConfig.allExercises.length,
-              itemBuilder: (context, index) {
-                final exercise = ExerciseConfig.allExercises[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: _ExerciseCard(
-                    config: exercise,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ExerciseScreen(
-                            exerciseConfig: exercise,
-                          ),
+          child: CustomScrollView(
+            slivers: [
+              // Time Circle Widget
+              SliverToBoxAdapter(
+                child: TimeCircleWidget(
+                  earnedMinutes: _earnedMinutes,
+                  spentMinutes: _spentMinutes,
+                ),
+              ),
+              // Divider
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  child: Divider(color: Colors.white24),
+                ),
+              ),
+              // Exercise Cards
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final exercise = ExerciseConfig.allExercises[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: _ExerciseCard(
+                          config: exercise,
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ExerciseScreen(
+                                  exerciseConfig: exercise,
+                                ),
+                              ),
+                            );
+                            // Reload time data when returning from exercise
+                            _loadTimeData();
+                          },
                         ),
                       );
                     },
+                    childCount: ExerciseConfig.allExercises.length,
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+              // Bottom padding
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 16),
+              ),
+            ],
           ),
         ),
       ),

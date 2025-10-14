@@ -2,8 +2,10 @@ package com.example.getfit
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -19,16 +21,26 @@ class AppBlockerService : AccessibilityService() {
     private var isBlocking = false
 
     companion object {
+        private const val TAG = "AppBlockerService"
+        private const val PREFS_NAME = "app_blocker_prefs"
+        private const val KEY_BLOCKED_APPS = "blocked_apps"
+        private const val KEY_BLOCKING_ENABLED = "blocking_enabled"
         private var instance: AppBlockerService? = null
 
         fun getInstance(): AppBlockerService? = instance
 
         fun updateBlockedApps(apps: Set<String>) {
-            instance?.blockedApps = apps
+            instance?.let {
+                it.blockedApps = apps
+                Log.d(TAG, "Updated blocked apps: ${apps.size} apps")
+            }
         }
 
         fun setBlockingEnabled(enabled: Boolean) {
-            instance?.isBlocking = enabled
+            instance?.let {
+                it.isBlocking = enabled
+                Log.d(TAG, "Blocking enabled: $enabled")
+            }
         }
     }
 
@@ -36,6 +48,25 @@ class AppBlockerService : AccessibilityService() {
         super.onCreate()
         instance = this
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        Log.d(TAG, "Service onCreate")
+
+        // Load saved settings from SharedPreferences
+        loadSavedSettings()
+    }
+
+    private fun loadSavedSettings() {
+        try {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val appsSet = prefs.getStringSet(KEY_BLOCKED_APPS, emptySet()) ?: emptySet()
+            val blockingEnabled = prefs.getBoolean(KEY_BLOCKING_ENABLED, false)
+
+            blockedApps = appsSet
+            isBlocking = blockingEnabled
+
+            Log.d(TAG, "Loaded settings - Blocked apps: ${blockedApps.size}, Blocking enabled: $isBlocking")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading saved settings", e)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -157,5 +188,8 @@ class AppBlockerService : AccessibilityService() {
         info.notificationTimeout = 100
 
         serviceInfo = info
+
+        // Reload settings when service connects
+        loadSavedSettings()
     }
 }

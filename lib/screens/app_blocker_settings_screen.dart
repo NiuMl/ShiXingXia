@@ -28,9 +28,15 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
     final isEnabled = await _appBlockerService.isAccessibilityServiceEnabled();
     final apps = await _appBlockerService.getInstalledApps();
 
+    // Load saved settings
+    final savedBlockedApps = await _appBlockerService.getSavedBlockedApps();
+    final savedBlockingEnabled = await _appBlockerService.getSavedBlockingEnabled();
+
     setState(() {
       _isAccessibilityEnabled = isEnabled;
       _installedApps = apps;
+      _blockedPackages = savedBlockedApps.toSet();
+      _blockingEnabled = savedBlockingEnabled;
       _isLoading = false;
     });
   }

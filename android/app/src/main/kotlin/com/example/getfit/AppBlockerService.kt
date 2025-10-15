@@ -37,7 +37,10 @@ class AppBlockerService : AccessibilityService() {
     private var isUsingBlockedApp = false
     private var timeTrackingStartMillis = 0L
     private var lastMinuteDeductedAt = 0L
-    private var lastBlockedAppDetectionTime = 0L
+
+    // Notification update
+    private val notificationUpdateInterval = 1000L // Update notification every second
+    private var currentTrackedPackage: String? = null
 
     companion object {
         private const val TAG = "AppBlockerService"
@@ -125,10 +128,21 @@ class AppBlockerService : AccessibilityService() {
 
     private fun startContinuousCheck() {
         handler.post(checkRunnable)
+        handler.post(notificationUpdateRunnable)
     }
 
     private fun stopContinuousCheck() {
         handler.removeCallbacks(checkRunnable)
+        handler.removeCallbacks(notificationUpdateRunnable)
+    }
+
+    private val notificationUpdateRunnable = object : Runnable {
+        override fun run() {
+            if (isUsingBlockedApp && currentTrackedPackage != null) {
+                showUsageNotification(currentTrackedPackage!!)
+            }
+            handler.postDelayed(this, notificationUpdateInterval)
+        }
     }
 
     private fun checkForegroundApp() {
@@ -145,9 +159,10 @@ class AppBlockerService : AccessibilityService() {
                     currentBlockedPackage = null
                     removeOverlay()
                 }
-                // Hide notification when not in blocked app
+                // Hide notification and stop tracking when leaving blocked app
                 hideUsageNotification()
-                // DON'T stop time tracking here - might just be a brief transition
+                currentTrackedPackage = null
+                stopTimeTracking()
                 return
             }
 
@@ -168,19 +183,19 @@ class AppBlockerService : AccessibilityService() {
                         removeOverlay()
                     }
 
-                    // Update last detection time
-                    lastBlockedAppDetectionTime = System.currentTimeMillis()
-
                     // Start tracking time if not already tracking
                     if (!isUsingBlockedApp) {
                         startTimeTracking()
                         Log.d(TAG, "Time tracking started. Available: $availableMinutes minutes")
                     }
 
+                    // Track current package for notification updates
+                    currentTrackedPackage = packageName
+
                     // Update spent time every minute
                     updateSpentTime()
 
-                    showUsageNotification(packageName)
+                    // Initial notification will be shown by notificationUpdateRunnable
                 } else {
                     // No time available - block the app
                     stopTimeTracking()
@@ -195,6 +210,7 @@ class AppBlockerService : AccessibilityService() {
             } else {
                 // Not a blocked app - clear overlay if present
                 stopTimeTracking()
+                currentTrackedPackage = null
 
                 if (overlayView != null) {
                     Log.d(TAG, "Non-blocked app detected: $packageName, removing overlay")
@@ -222,20 +238,26 @@ class AppBlockerService : AccessibilityService() {
                 return
             }
 
-            // Calculate seconds remaining in current minute
+            // Calculate time left with seconds precision
             val currentTime = System.currentTimeMillis()
-            val timeUsedInCurrentMinute = if (isUsingBlockedApp) {
+            val timeUsedInCurrentMinute = if (isUsingBlockedApp && lastMinuteDeductedAt > 0) {
                 ((currentTime - lastMinuteDeductedAt) / 1000).toInt()
             } else {
                 0
             }
-            val secondsRemaining = 60 - timeUsedInCurrentMinute
+
+            // Calculate total seconds left (available minutes minus time used in current minute)
+            val totalSecondsLeft = (availableMinutes * 60) - timeUsedInCurrentMinute
+
+            // Convert to minutes and seconds for display
+            val minutesLeft = totalSecondsLeft / 60
+            val secondsLeft = totalSecondsLeft % 60
 
             val appName = getAppName(packageName)
 
             val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setContentTitle("Using $appName")
-                .setContentText("Available: ${availableMinutes}m | Used: ${spentMinutes}m | Next deduction in ${secondsRemaining}s")
+                .setContentText("Time left: ${minutesLeft}m${secondsLeft}s")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -419,6 +441,7 @@ class AppBlockerService : AccessibilityService() {
             isUsingBlockedApp = false
             timeTrackingStartMillis = 0L
             lastMinuteDeductedAt = 0L
+            currentTrackedPackage = null
             Log.d(TAG, "Stopped time tracking")
         }
     }
@@ -430,28 +453,20 @@ class AppBlockerService : AccessibilityService() {
         }
 
         val currentTime = System.currentTimeMillis()
-
-        // Check if we haven't detected blocked app for 3 seconds - might have left
-        val timeSinceLastDetection = currentTime - lastBlockedAppDetectionTime
-        if (timeSinceLastDetection > 3000L) {
-            Log.d(TAG, "Haven't detected blocked app for 3s, stopping tracking")
-            stopTimeTracking()
-            return
-        }
-
         val timeSinceLastDeduction = currentTime - lastMinuteDeductedAt
-        val secondsSinceLastDeduction = timeSinceLastDeduction / 1000
 
-        Log.d(TAG, "Time check: ${secondsSinceLastDeduction}s since last deduction (current: $currentTime, last: $lastMinuteDeductedAt)")
+        Log.d(TAG, "Time check: ${timeSinceLastDeduction}ms since last deduction")
 
         // Deduct a minute every 60 seconds
         if (timeSinceLastDeduction >= 60000L) {
-            val minutesToDeduct = (timeSinceLastDeduction / 60000L).toInt()
+            val timePrefs = getSharedPreferences(TIME_PREFS_NAME, Context.MODE_PRIVATE)
+            val currentSpent = timePrefs.getLong(KEY_SPENT_MINUTES, 0L).toInt()
+            val currentEarned = timePrefs.getLong(KEY_EARNED_MINUTES, 0L).toInt()
+            val currentAvailable = currentEarned - currentSpent
 
-            if (minutesToDeduct > 0) {
-                val timePrefs = getSharedPreferences(TIME_PREFS_NAME, Context.MODE_PRIVATE)
-                val currentSpent = timePrefs.getLong(KEY_SPENT_MINUTES, 0L).toInt()
-                val newSpent = currentSpent + minutesToDeduct
+            // Only deduct if there's time available
+            if (currentAvailable > 0) {
+                val newSpent = currentSpent + 1
 
                 Log.d(TAG, "Before write - currentSpent: $currentSpent, newSpent: $newSpent")
 
@@ -459,12 +474,15 @@ class AppBlockerService : AccessibilityService() {
                 editor.putLong(KEY_SPENT_MINUTES, newSpent.toLong())
                 val success = editor.commit() // Use commit() instead of apply() for immediate write
 
-                Log.d(TAG, "Write success: $success. Deducted $minutesToDeduct minute(s). Total spent: $newSpent")
+                Log.d(TAG, "Write success: $success. Deducted 1 minute. Total spent: $newSpent")
 
-                lastMinuteDeductedAt = currentTime
+                // Move the deduction time forward by exactly 60 seconds
+                lastMinuteDeductedAt = lastMinuteDeductedAt + 60000L
 
-                // Force notification update to show new time
-                currentBlockedPackage?.let { showUsageNotification(it) }
+                // Notification will be updated automatically by notificationUpdateRunnable
+            } else {
+                Log.d(TAG, "No available time to deduct")
+                stopTimeTracking()
             }
         }
     }

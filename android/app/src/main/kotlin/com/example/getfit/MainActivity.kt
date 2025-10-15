@@ -1,7 +1,11 @@
 package com.example.getfit
 
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
@@ -59,6 +63,22 @@ class MainActivity : FlutterActivity() {
                     val apps = getInstalledApps()
                     result.success(apps)
                 }
+                "hasUsageStatsPermission" -> {
+                    val hasPermission = hasUsageStatsPermission()
+                    result.success(hasPermission)
+                }
+                "requestUsageStatsPermission" -> {
+                    requestUsageStatsPermission()
+                    result.success(null)
+                }
+                "isIgnoringBatteryOptimizations" -> {
+                    val isIgnoring = isIgnoringBatteryOptimizations()
+                    result.success(isIgnoring)
+                }
+                "requestIgnoreBatteryOptimizations" -> {
+                    requestIgnoreBatteryOptimizations()
+                    result.success(null)
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -95,5 +115,52 @@ class MainActivity : FlutterActivity() {
                 "appName" to pm.getApplicationLabel(appInfo).toString()
             )
         }.sortedBy { it["appName"] }
+    }
+
+    private fun hasUsageStatsPermission(): Boolean {
+        return try {
+            val appOpsManager = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOpsManager.unsafeCheckOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    packageName
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                appOpsManager.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    packageName
+                )
+            }
+            mode == AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun requestUsageStatsPermission() {
+        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        startActivity(intent)
+    }
+
+    private fun isIgnoringBatteryOptimizations(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            powerManager.isIgnoringBatteryOptimizations(packageName)
+        } else {
+            true
+        }
+    }
+
+    private fun requestIgnoreBatteryOptimizations() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = Uri.parse("package:$packageName")
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+        }
     }
 }

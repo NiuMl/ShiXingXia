@@ -3,7 +3,7 @@ import '../models/exercise_config.dart';
 import '../services/time_tracking_service.dart';
 import '../widgets/time_circle_widget.dart';
 import 'exercise_screen.dart';
-import 'app_blocker_settings_screen.dart';
+import 'settings_menu_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -45,7 +45,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const AppBlockerSettingsScreen(),
+                  builder: (_) => const SettingsMenuScreen(),
                 ),
               );
               // Reload data when returning from settings

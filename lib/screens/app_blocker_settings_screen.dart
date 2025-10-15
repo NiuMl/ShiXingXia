@@ -13,7 +13,6 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
   List<AppInfo> _installedApps = [];
   Set<String> _blockedPackages = {};
   bool _isLoading = true;
-  bool _isAccessibilityEnabled = false;
   bool _blockingEnabled = false;
 
   @override
@@ -25,7 +24,6 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
-    final isEnabled = await _appBlockerService.isAccessibilityServiceEnabled();
     final apps = await _appBlockerService.getInstalledApps();
 
     // Load saved settings
@@ -33,7 +31,6 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
     final savedBlockingEnabled = await _appBlockerService.getSavedBlockingEnabled();
 
     setState(() {
-      _isAccessibilityEnabled = isEnabled;
       _installedApps = apps;
       _blockedPackages = savedBlockedApps.toSet();
       _blockingEnabled = savedBlockingEnabled;
@@ -42,21 +39,11 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
   }
 
   Future<void> _toggleBlockingEnabled(bool value) async {
-    if (!_isAccessibilityEnabled) {
-      _showAccessibilityAlert();
-      return;
-    }
-
     setState(() => _blockingEnabled = value);
     await _appBlockerService.setBlockingEnabled(value);
   }
 
   Future<void> _toggleAppBlocked(String packageName, bool isBlocked) async {
-    if (!_isAccessibilityEnabled) {
-      _showAccessibilityAlert();
-      return;
-    }
-
     setState(() {
       if (isBlocked) {
         _blockedPackages.add(packageName);
@@ -66,32 +53,6 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
     });
 
     await _appBlockerService.setBlockedApps(_blockedPackages.toList());
-  }
-
-  void _showAccessibilityAlert() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Accessibility Permission Required'),
-        content: const Text(
-          'To block apps, you need to enable the GetFit accessibility service. '
-          'This allows the app to monitor which apps are in the foreground and display a blocking overlay.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _appBlockerService.openAccessibilitySettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -104,48 +65,17 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Accessibility Service Status
+                // Blocking Toggle
                 Card(
                   margin: const EdgeInsets.all(16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              _isAccessibilityEnabled ? Icons.check_circle : Icons.error,
-                              color: _isAccessibilityEnabled ? Colors.green : Colors.orange,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _isAccessibilityEnabled
-                                    ? 'Accessibility Service Enabled'
-                                    : 'Accessibility Service Required',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (!_isAccessibilityEnabled)
-                          ElevatedButton(
-                            onPressed: () async {
-                              await _appBlockerService.openAccessibilitySettings();
-                            },
-                            child: const Text('Enable Service'),
-                          ),
-                        if (_isAccessibilityEnabled)
-                          SwitchListTile(
-                            title: const Text('Enable App Blocking'),
-                            subtitle: const Text('Block selected apps when enabled'),
-                            value: _blockingEnabled,
-                            onChanged: _toggleBlockingEnabled,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                      ],
+                  child: SwitchListTile(
+                    title: const Text('Enable App Blocking'),
+                    subtitle: const Text('Block selected apps when enabled'),
+                    value: _blockingEnabled,
+                    onChanged: _toggleBlockingEnabled,
+                    secondary: Icon(
+                      _blockingEnabled ? Icons.block : Icons.check_circle_outline,
+                      color: _blockingEnabled ? Colors.red : Colors.grey,
                     ),
                   ),
                 ),

@@ -2,9 +2,15 @@ package com.example.getfit
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.ActivityManager
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -20,6 +26,8 @@ class AppBlockerService : AccessibilityService() {
     private var blockedApps: Set<String> = emptySet()
     private var isBlocking = false
     private var currentBlockedPackage: String? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val checkInterval = 500L // Check every 500ms
 
     companion object {
         private const val TAG = "AppBlockerService"
@@ -53,6 +61,101 @@ class AppBlockerService : AccessibilityService() {
 
         // Load saved settings from SharedPreferences
         loadSavedSettings()
+
+        // Start continuous checking
+        startContinuousCheck()
+    }
+
+    private val checkRunnable = object : Runnable {
+        override fun run() {
+            if (isBlocking) {
+                checkForegroundApp()
+            }
+            handler.postDelayed(this, checkInterval)
+        }
+    }
+
+    private fun startContinuousCheck() {
+        handler.post(checkRunnable)
+    }
+
+    private fun stopContinuousCheck() {
+        handler.removeCallbacks(checkRunnable)
+    }
+
+    private fun checkForegroundApp() {
+        try {
+            val packageName = getForegroundAppPackage() ?: return
+
+            // Don't block our own app or launcher
+            if (packageName == this.packageName ||
+                packageName.contains("launcher") ||
+                packageName.contains("home")) {
+                // Only remove overlay if we're not just transitioning
+                if (overlayView != null) {
+                    Log.d(TAG, "Home/Our app detected, removing overlay")
+                    currentBlockedPackage = null
+                    removeOverlay()
+                }
+                return
+            }
+
+            // Check if should be blocked
+            if (blockedApps.contains(packageName)) {
+                if (currentBlockedPackage != packageName || overlayView == null) {
+                    Log.d(TAG, "Detected blocked app in foreground: $packageName")
+                    currentBlockedPackage = packageName
+                    showBlockOverlay(packageName)
+                }
+            } else {
+                // Not a blocked app - clear overlay if present
+                if (overlayView != null) {
+                    Log.d(TAG, "Non-blocked app detected: $packageName, removing overlay")
+                    currentBlockedPackage = null
+                    removeOverlay()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking foreground app", e)
+        }
+    }
+
+    private fun getForegroundAppPackage(): String? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // Use UsageStatsManager for Lollipop and above
+                val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val time = System.currentTimeMillis()
+
+                // Query events in the last second
+                val usageEvents = usageStatsManager.queryEvents(time - 1000, time)
+                var lastEvent: UsageEvents.Event? = null
+
+                while (usageEvents.hasNextEvent()) {
+                    val event = UsageEvents.Event()
+                    usageEvents.getNextEvent(event)
+
+                    // Look for MOVE_TO_FOREGROUND events
+                    if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                        lastEvent = event
+                    }
+                }
+
+                lastEvent?.packageName
+            } else {
+                // Fallback to ActivityManager for older versions
+                val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                val runningTasks = activityManager.getRunningTasks(1)
+                if (runningTasks.isNotEmpty()) {
+                    runningTasks[0].topActivity?.packageName
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting foreground app package", e)
+            null
+        }
     }
 
     private fun loadSavedSettings() {
@@ -71,53 +174,8 @@ class AppBlockerService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            val packageName = event.packageName?.toString() ?: return
-
-            Log.d(TAG, "Window state changed: $packageName (currentBlocked=$currentBlockedPackage)")
-
-            // Check if the app should be blocked
-            if (isBlocking && blockedApps.contains(packageName)) {
-                Log.d(TAG, "App is blocked, showing overlay: $packageName")
-                currentBlockedPackage = packageName
-                showBlockOverlay(packageName)
-                return
-            }
-
-            // If it's our own app briefly appearing (e.g., when overlay button launches home intent)
-            // Don't remove the overlay - wait for the actual target app
-            if (packageName == this.packageName && currentBlockedPackage != null) {
-                Log.d(TAG, "Our app briefly appeared, keeping overlay for: $currentBlockedPackage")
-                return
-            }
-
-            // If switching to launcher or home screen, clear the block
-            if (packageName == "com.android.launcher" ||
-                packageName == "com.android.launcher3" ||
-                packageName.contains("launcher") ||
-                packageName.contains("home")) {
-                Log.d(TAG, "Switched to launcher/home, removing overlay")
-                currentBlockedPackage = null
-                removeOverlay()
-                return
-            }
-
-            // If it's our own app and no blocked app is tracked, clear overlay
-            if (packageName == this.packageName) {
-                Log.d(TAG, "Our app in foreground, removing overlay")
-                currentBlockedPackage = null
-                removeOverlay()
-                return
-            }
-
-            // Different app that's not blocked
-            // This is a legitimate switch to another app
-            if (currentBlockedPackage != null) {
-                Log.d(TAG, "Switched to non-blocked app: $packageName, clearing block state")
-            }
-            currentBlockedPackage = null
-            removeOverlay()
-        }
+        // Only using UsageStatsManager polling for detection
+        // This is kept to maintain AccessibilityService but does nothing
     }
 
     private fun showBlockOverlay(packageName: String) {
@@ -216,18 +274,24 @@ class AppBlockerService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d(TAG, "Service destroyed")
+        stopContinuousCheck()
         removeOverlay()
         instance = null
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        Log.d(TAG, "Service connected")
 
         val info = AccessibilityServiceInfo()
-        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                AccessibilityEvent.TYPE_WINDOWS_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-        info.flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
-        info.notificationTimeout = 100
+        info.flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
+                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        info.notificationTimeout = 50
 
         serviceInfo = info
 

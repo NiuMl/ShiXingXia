@@ -158,12 +158,6 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   @override
   void dispose() {
-    // Award earned minutes before disposing
-    final repCount = _classifier.repetitionCounter.value;
-    if (repCount > 0) {
-      TimeTrackingService().addEarnedMinutes(repCount);
-    }
-
     _controller?.dispose();
     _detector.close();
     _keyPoints.dispose();

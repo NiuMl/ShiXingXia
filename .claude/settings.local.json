@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter pub:*)",
+      "Bash(adb logcat:*)",
+      "Bash(adb:*)",
+      "Bash(flutter build:*)",
+      "Bash(flutter install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

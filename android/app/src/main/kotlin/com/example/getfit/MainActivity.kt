@@ -1,13 +1,16 @@
 package com.example.getfit
 
+import android.Manifest
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.annotation.NonNull
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -77,6 +80,14 @@ class MainActivity : FlutterActivity() {
                 }
                 "requestIgnoreBatteryOptimizations" -> {
                     requestIgnoreBatteryOptimizations()
+                    result.success(null)
+                }
+                "hasNotificationPermission" -> {
+                    val hasPermission = hasNotificationPermission()
+                    result.success(hasPermission)
+                }
+                "requestNotificationPermission" -> {
+                    requestNotificationPermission()
                     result.success(null)
                 }
                 else -> {
@@ -161,6 +172,24 @@ class MainActivity : FlutterActivity() {
             intent.data = Uri.parse("package:$packageName")
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             startActivity(intent)
+        }
+    }
+
+    private fun hasNotificationPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            // Notifications are granted by default on Android 12 and below
+            true
+        }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
         }
     }
 }

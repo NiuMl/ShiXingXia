@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TimeTrackingService {
+  // SharedPreferences keys (Flutter automatically adds 'flutter.' prefix internally)
   static const String _keyEarnedMinutes = 'earned_minutes';
   static const String _keySpentMinutes = 'spent_minutes';
 
@@ -8,6 +9,8 @@ class TimeTrackingService {
   Future<int> getEarnedMinutes() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Reload to get latest values from disk (updated by native code)
+      await prefs.reload();
       return prefs.getInt(_keyEarnedMinutes) ?? 0;
     } catch (e) {
       print("Error loading earned minutes: $e");
@@ -19,6 +22,8 @@ class TimeTrackingService {
   Future<int> getSpentMinutes() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      // Reload to get latest values from disk (updated by native code)
+      await prefs.reload();
       return prefs.getInt(_keySpentMinutes) ?? 0;
     } catch (e) {
       print("Error loading spent minutes: $e");

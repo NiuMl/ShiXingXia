@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/app_blocker_service.dart';
 import 'main_menu_screen.dart';
 
@@ -18,6 +19,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
   bool _accessibilityGranted = false;
   bool _usageStatsGranted = false;
   bool _batteryOptimizationDisabled = false;
+  bool _notificationGranted = false;
   bool _isCheckingPermissions = false;
 
   @override
@@ -26,22 +28,24 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
     _checkAllPermissions();
   }
 
-  Future<void> _checkAllPermissions() async {
+  Future<void> _checkAllPermissions({bool autoNavigate = true}) async {
     setState(() => _isCheckingPermissions = true);
 
     final accessibility = await _appBlockerService.isAccessibilityServiceEnabled();
     final usageStats = await _checkUsageStatsPermission();
     final battery = await _checkBatteryOptimization();
+    final notification = await _checkNotificationPermission();
 
     setState(() {
       _accessibilityGranted = accessibility;
       _usageStatsGranted = usageStats;
       _batteryOptimizationDisabled = battery;
+      _notificationGranted = notification;
       _isCheckingPermissions = false;
     });
 
-    // Auto-navigate if all permissions granted
-    if (_accessibilityGranted && _usageStatsGranted && _batteryOptimizationDisabled) {
+    // Auto-navigate if all permissions granted (only on initial load or manual check)
+    if (autoNavigate && _accessibilityGranted && _usageStatsGranted && _batteryOptimizationDisabled && _notificationGranted) {
       await _saveSetupComplete();
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -75,7 +79,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
     try {
       await _channel.invokeMethod('requestUsageStatsPermission');
       await Future.delayed(const Duration(seconds: 1));
-      await _checkAllPermissions();
+      await _checkAllPermissions(autoNavigate: false);
     } catch (e) {
       print("Error requesting usage stats permission: $e");
     }
@@ -85,15 +89,95 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
     try {
       await _channel.invokeMethod('requestIgnoreBatteryOptimizations');
       await Future.delayed(const Duration(seconds: 1));
-      await _checkAllPermissions();
+      await _checkAllPermissions(autoNavigate: false);
     } catch (e) {
       print("Error requesting battery optimization: $e");
+    }
+  }
+
+  Future<bool> _checkNotificationPermission() async {
+    try {
+      final status = await Permission.notification.status;
+      return status.isGranted;
+    } catch (e) {
+      print("Error checking notification permission: $e");
+      return true; // On older Android, notifications are granted by default
+    }
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    try {
+      final status = await Permission.notification.request();
+      await _checkAllPermissions(autoNavigate: false);
+    } catch (e) {
+      print("Error requesting notification permission: $e");
     }
   }
 
   Future<void> _saveSetupComplete() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('setup_complete', true);
+  }
+
+  void _showAccessibilityDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Accessibility Service'),
+        content: const Text(
+          'To allow GetFit to detect and block apps:\n\n'
+          '1. Tap "Open Settings" below\n'
+          '2. Find "GetFit" in the list\n'
+          '3. Toggle the switch to ON\n'
+          '4. Confirm by tapping OK\n'
+          '5. Return to this screen',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _appBlockerService.openAccessibilitySettings();
+              await Future.delayed(const Duration(seconds: 1));
+              if (context.mounted) await _checkAllPermissions(autoNavigate: false);
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUsageStatsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable Usage Access'),
+        content: const Text(
+          'To track which apps are in use:\n\n'
+          '1. Tap "Open Settings" below\n'
+          '2. Find "GetFit" in the list\n'
+          '3. Toggle the switch to ON\n'
+          '4. Return to this screen',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _requestUsageStatsPermission();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -136,11 +220,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
                   description: 'Required to detect when blocked apps are opened and show blocking overlay.',
                   icon: Icons.accessibility_new,
                   isGranted: _accessibilityGranted,
-                  onTap: () async {
-                    await _appBlockerService.openAccessibilitySettings();
-                    await Future.delayed(const Duration(seconds: 1));
-                    await _checkAllPermissions();
-                  },
+                  onTap: () => _showAccessibilityDialog(context),
                 ),
 
                 const SizedBox(height: 16),
@@ -151,7 +231,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
                   description: 'Required to reliably detect which app is in the foreground.',
                   icon: Icons.bar_chart,
                   isGranted: _usageStatsGranted,
-                  onTap: _requestUsageStatsPermission,
+                  onTap: () => _showUsageStatsDialog(context),
                 ),
 
                 const SizedBox(height: 16),
@@ -165,10 +245,21 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
                   onTap: _requestBatteryOptimization,
                 ),
 
+                const SizedBox(height: 16),
+
+                // Notification Permission
+                _PermissionCard(
+                  title: 'Notifications',
+                  description: 'Required to show usage tracking notifications.',
+                  icon: Icons.notifications,
+                  isGranted: _notificationGranted,
+                  onTap: _requestNotificationPermission,
+                ),
+
                 const SizedBox(height: 32),
 
                 // Continue button
-                if (_accessibilityGranted && _usageStatsGranted && _batteryOptimizationDisabled)
+                if (_accessibilityGranted && _usageStatsGranted && _batteryOptimizationDisabled && _notificationGranted)
                   ElevatedButton(
                     onPressed: () async {
                       await _saveSetupComplete();

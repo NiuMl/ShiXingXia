@@ -40,6 +40,7 @@ dependencies:
   ml_algo: ^16.18.0
   ml_dataframe: 1.6.0
   shared_preferences: ^2.3.3
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

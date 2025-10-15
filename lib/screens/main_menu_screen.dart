@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/exercise_config.dart';
 import '../services/time_tracking_service.dart';
@@ -16,20 +17,33 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   final TimeTrackingService _timeService = TimeTrackingService();
   int _earnedMinutes = 0;
   int _spentMinutes = 0;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadTimeData();
+    // Refresh time data every second to show real-time updates
+    _refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _loadTimeData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadTimeData() async {
     final earned = await _timeService.getEarnedMinutes();
     final spent = await _timeService.getSpentMinutes();
-    setState(() {
-      _earnedMinutes = earned;
-      _spentMinutes = spent;
-    });
+    if (mounted) {
+      setState(() {
+        _earnedMinutes = earned;
+        _spentMinutes = spent;
+      });
+    }
   }
 
   @override

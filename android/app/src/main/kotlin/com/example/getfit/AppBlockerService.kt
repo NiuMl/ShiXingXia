@@ -39,7 +39,7 @@ class AppBlockerService : AccessibilityService() {
     private var lastDeductionAt = 0L
 
     // Notification update
-    private val notificationUpdateInterval = 1000L // Update notification every second
+    private val notificationUpdateInterval = 500L // Update notification every 500ms for better responsiveness
     private var currentTrackedPackage: String? = null
 
     companion object {
@@ -175,7 +175,16 @@ class AppBlockerService : AccessibilityService() {
                 val spentSeconds = timePrefs.getLong(KEY_SPENT_SECONDS, 0L).toInt()
                 val availableSeconds = earnedSeconds - spentSeconds
 
-                if (availableSeconds > 0) {
+                // Also account for time used in current session (not yet saved to disk)
+                val currentTime = System.currentTimeMillis()
+                val timeUsedInSession = if (isUsingBlockedApp && sessionStartMillis > 0) {
+                    ((currentTime - sessionStartMillis) / 1000).toInt()
+                } else {
+                    0
+                }
+                val actualAvailableSeconds = availableSeconds - timeUsedInSession
+
+                if (actualAvailableSeconds > 0) {
                     // User has time available - just show notification, no block
                     if (overlayView != null) {
                         Log.d(TAG, "Removing overlay - user has available time")
@@ -231,13 +240,7 @@ class AppBlockerService : AccessibilityService() {
             val spentSeconds = timePrefs.getLong(KEY_SPENT_SECONDS, 0L).toInt()
             val availableSeconds = earnedSeconds - spentSeconds
 
-            if (availableSeconds <= 0) {
-                // No time left, don't show notification
-                hideUsageNotification()
-                return
-            }
-
-            // Calculate time used in current session
+            // Calculate time used in current session (not yet saved)
             val currentTime = System.currentTimeMillis()
             val timeUsedInSession = if (isUsingBlockedApp && sessionStartMillis > 0) {
                 ((currentTime - sessionStartMillis) / 1000).toInt()
@@ -246,7 +249,35 @@ class AppBlockerService : AccessibilityService() {
             }
 
             // Calculate total seconds left (available minus time used in current session)
-            val totalSecondsLeft = availableSeconds - timeUsedInSession
+            val totalSecondsLeft = maxOf(0, availableSeconds - timeUsedInSession)
+
+            if (totalSecondsLeft <= 0) {
+                // No time left, save session time immediately and trigger blocking
+                if (isUsingBlockedApp && sessionStartMillis > 0) {
+                    val sessionDuration = ((currentTime - sessionStartMillis) / 1000).toInt()
+                    if (sessionDuration > 0) {
+                        val currentSpent = timePrefs.getLong(KEY_SPENT_SECONDS, 0L).toInt()
+                        val newSpent = currentSpent + sessionDuration
+                        timePrefs.edit().putLong(KEY_SPENT_SECONDS, newSpent.toLong()).commit()
+                        Log.d(TAG, "Time expired! Saved session: ${sessionDuration}s, Total spent: ${newSpent}s")
+                    }
+                }
+
+                hideUsageNotification()
+                // Stop tracking and reset session
+                isUsingBlockedApp = false
+                sessionStartMillis = 0L
+                val expiredPackage = currentTrackedPackage
+                currentTrackedPackage = null
+
+                // Directly show block overlay for the current app
+                if (expiredPackage != null) {
+                    currentBlockedPackage = expiredPackage
+                    showBlockOverlay(expiredPackage)
+                    Log.d(TAG, "Time expired - showing block overlay immediately")
+                }
+                return
+            }
 
             // Convert to minutes and seconds for display
             val minutesLeft = totalSecondsLeft / 60

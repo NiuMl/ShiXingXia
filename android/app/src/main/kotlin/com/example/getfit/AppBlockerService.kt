@@ -35,8 +35,8 @@ class AppBlockerService : AccessibilityService() {
 
     // Time tracking
     private var isUsingBlockedApp = false
-    private var timeTrackingStartMillis = 0L
-    private var lastMinuteDeductedAt = 0L
+    private var sessionStartMillis = 0L
+    private var lastDeductionAt = 0L
 
     // Notification update
     private val notificationUpdateInterval = 1000L // Update notification every second
@@ -52,8 +52,9 @@ class AppBlockerService : AccessibilityService() {
         private const val FOREGROUND_NOTIFICATION_CHANNEL_ID = "app_blocker_service"
         private const val FOREGROUND_NOTIFICATION_ID = 1001
         private const val TIME_PREFS_NAME = "FlutterSharedPreferences"
-        private const val KEY_EARNED_MINUTES = "flutter.earned_minutes"
-        private const val KEY_SPENT_MINUTES = "flutter.spent_minutes"
+        private const val KEY_EARNED_SECONDS = "flutter.earned_seconds"
+        private const val KEY_SPENT_SECONDS = "flutter.spent_seconds"
+        private const val KEY_LAST_DEDUCTION_AT = "flutter.last_deduction_at"
         private var instance: AppBlockerService? = null
 
         fun getInstance(): AppBlockerService? = instance
@@ -168,14 +169,13 @@ class AppBlockerService : AccessibilityService() {
 
             // Check if should be blocked
             if (blockedApps.contains(packageName)) {
-                // Check if user has earned minutes
+                // Check if user has earned time
                 val timePrefs = getSharedPreferences(TIME_PREFS_NAME, Context.MODE_PRIVATE)
-                // Flutter stores integers as Long, so we need to read as Long and convert
-                val earnedMinutes = timePrefs.getLong(KEY_EARNED_MINUTES, 0L).toInt()
-                val spentMinutes = timePrefs.getLong(KEY_SPENT_MINUTES, 0L).toInt()
-                val availableMinutes = earnedMinutes - spentMinutes
+                val earnedSeconds = timePrefs.getLong(KEY_EARNED_SECONDS, 0L).toInt()
+                val spentSeconds = timePrefs.getLong(KEY_SPENT_SECONDS, 0L).toInt()
+                val availableSeconds = earnedSeconds - spentSeconds
 
-                if (availableMinutes > 0) {
+                if (availableSeconds > 0) {
                     // User has time available - just show notification, no block
                     if (overlayView != null) {
                         Log.d(TAG, "Removing overlay - user has available time")
@@ -186,13 +186,13 @@ class AppBlockerService : AccessibilityService() {
                     // Start tracking time if not already tracking
                     if (!isUsingBlockedApp) {
                         startTimeTracking()
-                        Log.d(TAG, "Time tracking started. Available: $availableMinutes minutes")
+                        Log.d(TAG, "Time tracking started. Available: ${availableSeconds / 60} minutes ${availableSeconds % 60} seconds")
                     }
 
                     // Track current package for notification updates
                     currentTrackedPackage = packageName
 
-                    // Update spent time every minute
+                    // Update spent time every second
                     updateSpentTime()
 
                     // Initial notification will be shown by notificationUpdateRunnable
@@ -227,27 +227,26 @@ class AppBlockerService : AccessibilityService() {
     private fun showUsageNotification(packageName: String) {
         try {
             val timePrefs = getSharedPreferences(TIME_PREFS_NAME, Context.MODE_PRIVATE)
-            // Flutter stores integers as Long, so we need to read as Long and convert
-            val earnedMinutes = timePrefs.getLong(KEY_EARNED_MINUTES, 0L).toInt()
-            val spentMinutes = timePrefs.getLong(KEY_SPENT_MINUTES, 0L).toInt()
-            val availableMinutes = earnedMinutes - spentMinutes
+            val earnedSeconds = timePrefs.getLong(KEY_EARNED_SECONDS, 0L).toInt()
+            val spentSeconds = timePrefs.getLong(KEY_SPENT_SECONDS, 0L).toInt()
+            val availableSeconds = earnedSeconds - spentSeconds
 
-            if (availableMinutes <= 0) {
+            if (availableSeconds <= 0) {
                 // No time left, don't show notification
                 hideUsageNotification()
                 return
             }
 
-            // Calculate time left with seconds precision
+            // Calculate time used in current session
             val currentTime = System.currentTimeMillis()
-            val timeUsedInCurrentMinute = if (isUsingBlockedApp && lastMinuteDeductedAt > 0) {
-                ((currentTime - lastMinuteDeductedAt) / 1000).toInt()
+            val timeUsedInSession = if (isUsingBlockedApp && sessionStartMillis > 0) {
+                ((currentTime - sessionStartMillis) / 1000).toInt()
             } else {
                 0
             }
 
-            // Calculate total seconds left (available minutes minus time used in current minute)
-            val totalSecondsLeft = (availableMinutes * 60) - timeUsedInCurrentMinute
+            // Calculate total seconds left (available minus time used in current session)
+            val totalSecondsLeft = availableSeconds - timeUsedInSession
 
             // Convert to minutes and seconds for display
             val minutesLeft = totalSecondsLeft / 60
@@ -257,7 +256,7 @@ class AppBlockerService : AccessibilityService() {
 
             val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setContentTitle("Using $appName")
-                .setContentText("Time left: ${minutesLeft}m${secondsLeft}s")
+                .setContentText("Time left: ${minutesLeft}m ${secondsLeft}s")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -430,54 +429,86 @@ class AppBlockerService : AccessibilityService() {
     }
 
     private fun startTimeTracking() {
-        isUsingBlockedApp = true
-        timeTrackingStartMillis = System.currentTimeMillis()
-        lastMinuteDeductedAt = timeTrackingStartMillis
-        Log.d(TAG, "Started time tracking")
+        if (!isUsingBlockedApp) {
+            isUsingBlockedApp = true
+            val currentTime = System.currentTimeMillis()
+
+            // Load last deduction time from SharedPreferences
+            val timePrefs = getSharedPreferences(TIME_PREFS_NAME, Context.MODE_PRIVATE)
+            lastDeductionAt = timePrefs.getLong(KEY_LAST_DEDUCTION_AT, 0L)
+
+            // If no previous tracking or it's been too long (more than 10 seconds), start fresh
+            if (lastDeductionAt == 0L || (currentTime - lastDeductionAt) > 10000L) {
+                lastDeductionAt = currentTime
+                timePrefs.edit().putLong(KEY_LAST_DEDUCTION_AT, lastDeductionAt).commit()
+                Log.d(TAG, "Started fresh time tracking at: $lastDeductionAt")
+            } else {
+                Log.d(TAG, "Resumed time tracking from: $lastDeductionAt")
+            }
+
+            sessionStartMillis = currentTime
+        }
     }
 
     private fun stopTimeTracking() {
         if (isUsingBlockedApp) {
+            // Deduct time spent in this session before stopping
+            val currentTime = System.currentTimeMillis()
+            val sessionDuration = ((currentTime - sessionStartMillis) / 1000).toInt() // in seconds
+
+            if (sessionDuration > 0) {
+                val timePrefs = getSharedPreferences(TIME_PREFS_NAME, Context.MODE_PRIVATE)
+                val currentSpent = timePrefs.getLong(KEY_SPENT_SECONDS, 0L).toInt()
+                val newSpent = currentSpent + sessionDuration
+
+                timePrefs.edit().putLong(KEY_SPENT_SECONDS, newSpent.toLong()).commit()
+                Log.d(TAG, "Session ended. Duration: ${sessionDuration}s, Total spent: ${newSpent}s")
+            }
+
             isUsingBlockedApp = false
-            timeTrackingStartMillis = 0L
-            lastMinuteDeductedAt = 0L
+            sessionStartMillis = 0L
+
+            // Reset the deduction timer for next session
+            val timePrefs = getSharedPreferences(TIME_PREFS_NAME, Context.MODE_PRIVATE)
+            timePrefs.edit().putLong(KEY_LAST_DEDUCTION_AT, 0L).commit()
+            lastDeductionAt = 0L
+
             currentTrackedPackage = null
-            Log.d(TAG, "Stopped time tracking")
+            Log.d(TAG, "Stopped time tracking and reset timer state")
         }
     }
 
     private fun updateSpentTime() {
         if (!isUsingBlockedApp) {
-            Log.d(TAG, "Not using blocked app, skipping time update")
             return
         }
 
         val currentTime = System.currentTimeMillis()
-        val timeSinceLastDeduction = currentTime - lastMinuteDeductedAt
+        val timeSinceLastDeduction = currentTime - lastDeductionAt
 
-        Log.d(TAG, "Time check: ${timeSinceLastDeduction}ms since last deduction")
+        // Deduct every second
+        if (timeSinceLastDeduction >= 1000L) {
+            val secondsToDeduct = (timeSinceLastDeduction / 1000).toInt()
 
-        // Deduct a minute every 60 seconds
-        if (timeSinceLastDeduction >= 60000L) {
             val timePrefs = getSharedPreferences(TIME_PREFS_NAME, Context.MODE_PRIVATE)
-            val currentSpent = timePrefs.getLong(KEY_SPENT_MINUTES, 0L).toInt()
-            val currentEarned = timePrefs.getLong(KEY_EARNED_MINUTES, 0L).toInt()
+            val currentSpent = timePrefs.getLong(KEY_SPENT_SECONDS, 0L).toInt()
+            val currentEarned = timePrefs.getLong(KEY_EARNED_SECONDS, 0L).toInt()
             val currentAvailable = currentEarned - currentSpent
 
             // Only deduct if there's time available
             if (currentAvailable > 0) {
-                val newSpent = currentSpent + 1
+                val actualDeduction = minOf(secondsToDeduct, currentAvailable)
+                val newSpent = currentSpent + actualDeduction
 
-                Log.d(TAG, "Before write - currentSpent: $currentSpent, newSpent: $newSpent")
+                // Move the deduction time forward
+                lastDeductionAt = lastDeductionAt + (actualDeduction * 1000L)
 
                 val editor = timePrefs.edit()
-                editor.putLong(KEY_SPENT_MINUTES, newSpent.toLong())
-                val success = editor.commit() // Use commit() instead of apply() for immediate write
+                editor.putLong(KEY_SPENT_SECONDS, newSpent.toLong())
+                editor.putLong(KEY_LAST_DEDUCTION_AT, lastDeductionAt)
+                editor.commit() // Use commit() for immediate write
 
-                Log.d(TAG, "Write success: $success. Deducted 1 minute. Total spent: $newSpent")
-
-                // Move the deduction time forward by exactly 60 seconds
-                lastMinuteDeductedAt = lastMinuteDeductedAt + 60000L
+                Log.d(TAG, "Deducted ${actualDeduction}s. Total spent: ${newSpent}s (${newSpent/60}m ${newSpent%60}s)")
 
                 // Notification will be updated automatically by notificationUpdateRunnable
             } else {

@@ -66,6 +66,19 @@ class MainActivity : FlutterActivity() {
                     val apps = getInstalledApps()
                     result.success(apps)
                 }
+                "getSocialMediaApps" -> {
+                    val apps = getSocialMediaApps()
+                    result.success(apps)
+                }
+                "searchApps" -> {
+                    val query = call.argument<String>("query")
+                    if (query != null) {
+                        val apps = searchApps(query)
+                        result.success(apps)
+                    } else {
+                        result.error("INVALID_ARGUMENT", "Query is null", null)
+                    }
+                }
                 "hasUsageStatsPermission" -> {
                     val hasPermission = hasUsageStatsPermission()
                     result.success(hasPermission)
@@ -112,7 +125,34 @@ class MainActivity : FlutterActivity() {
         startActivity(intent)
     }
 
-    private fun getInstalledApps(): List<Map<String, String>> {
+    // Social media package name patterns (shared)
+    private val socialMediaPatterns = listOf(
+        "facebook", "instagram", "tiktok", "twitter", "snapchat",
+        "whatsapp", "telegram", "messenger", "reddit", "youtube",
+        "linkedin", "pinterest", "tumblr", "discord", "twitch"
+    )
+
+    private fun getAppIcon(packageName: String): ByteArray {
+        return try {
+            val drawable = packageManager.getApplicationIcon(packageName)
+            val bitmap = android.graphics.Bitmap.createBitmap(
+                drawable.intrinsicWidth,
+                drawable.intrinsicHeight,
+                android.graphics.Bitmap.Config.ARGB_8888
+            )
+            val canvas = android.graphics.Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+
+            val stream = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+            stream.toByteArray()
+        } catch (e: Exception) {
+            ByteArray(0)
+        }
+    }
+
+    private fun getInstalledApps(): List<Map<String, Any>> {
         val pm = packageManager
         val apps = pm.getInstalledApplications(0)
 
@@ -121,11 +161,69 @@ class MainActivity : FlutterActivity() {
             pm.getLaunchIntentForPackage(appInfo.packageName) != null &&
             appInfo.packageName != packageName
         }.map { appInfo ->
+            val isSocialMedia = socialMediaPatterns.any {
+                appInfo.packageName.lowercase().contains(it)
+            }
+
             mapOf(
                 "packageName" to appInfo.packageName,
-                "appName" to pm.getApplicationLabel(appInfo).toString()
+                "appName" to pm.getApplicationLabel(appInfo).toString(),
+                "icon" to getAppIcon(appInfo.packageName),
+                "isSocialMedia" to isSocialMedia
             )
-        }.sortedBy { it["appName"] }
+        }.sortedWith(compareByDescending<Map<String, Any>> {
+            it["isSocialMedia"] as Boolean
+        }.thenBy {
+            it["appName"] as String
+        })
+    }
+
+    private fun getSocialMediaApps(): List<Map<String, Any>> {
+        val pm = packageManager
+        val apps = pm.getInstalledApplications(0)
+
+        // Only return social media apps
+        return apps.filter { appInfo ->
+            pm.getLaunchIntentForPackage(appInfo.packageName) != null &&
+            appInfo.packageName != packageName &&
+            socialMediaPatterns.any { appInfo.packageName.lowercase().contains(it) }
+        }.map { appInfo ->
+            mapOf(
+                "packageName" to appInfo.packageName,
+                "appName" to pm.getApplicationLabel(appInfo).toString(),
+                "icon" to getAppIcon(appInfo.packageName),
+                "isSocialMedia" to true
+            )
+        }.sortedBy { it["appName"] as String }
+    }
+
+    private fun searchApps(query: String): List<Map<String, Any>> {
+        val pm = packageManager
+        val apps = pm.getInstalledApplications(0)
+        val lowerQuery = query.lowercase()
+
+        // Search through apps
+        return apps.filter { appInfo ->
+            pm.getLaunchIntentForPackage(appInfo.packageName) != null &&
+            appInfo.packageName != packageName &&
+            (pm.getApplicationLabel(appInfo).toString().lowercase().contains(lowerQuery) ||
+            appInfo.packageName.lowercase().contains(lowerQuery))
+        }.map { appInfo ->
+            val isSocialMedia = socialMediaPatterns.any {
+                appInfo.packageName.lowercase().contains(it)
+            }
+
+            mapOf(
+                "packageName" to appInfo.packageName,
+                "appName" to pm.getApplicationLabel(appInfo).toString(),
+                "icon" to getAppIcon(appInfo.packageName),
+                "isSocialMedia" to isSocialMedia
+            )
+        }.sortedWith(compareByDescending<Map<String, Any>> {
+            it["isSocialMedia"] as Boolean
+        }.thenBy {
+            it["appName"] as String
+        }).take(20) // Limit to 20 results for performance
     }
 
     private fun hasUsageStatsPermission(): Boolean {

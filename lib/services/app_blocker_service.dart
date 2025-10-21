@@ -4,13 +4,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppInfo {
   final String packageName;
   final String appName;
+  final Uint8List? iconBytes;
+  final bool isSocialMedia;
 
-  AppInfo({required this.packageName, required this.appName});
+  AppInfo({
+    required this.packageName,
+    required this.appName,
+    this.iconBytes,
+    this.isSocialMedia = false,
+  });
 
   factory AppInfo.fromMap(Map<dynamic, dynamic> map) {
     return AppInfo(
       packageName: map['packageName'] as String,
       appName: map['appName'] as String,
+      iconBytes: map['icon'] != null ? Uint8List.fromList(List<int>.from(map['icon'])) : null,
+      isSocialMedia: map['isSocialMedia'] as bool? ?? false,
     );
   }
 
@@ -18,6 +27,8 @@ class AppInfo {
     return {
       'packageName': packageName,
       'appName': appName,
+      'icon': iconBytes,
+      'isSocialMedia': isSocialMedia,
     };
   }
 }
@@ -78,6 +89,28 @@ class AppBlockerService {
       return apps.map((app) => AppInfo.fromMap(app as Map<dynamic, dynamic>)).toList();
     } on PlatformException catch (e) {
       print("Error getting installed apps: ${e.message}");
+      return [];
+    }
+  }
+
+  /// Get only social media apps (fast loading)
+  Future<List<AppInfo>> getSocialMediaApps() async {
+    try {
+      final List<dynamic> apps = await _channel.invokeMethod('getSocialMediaApps');
+      return apps.map((app) => AppInfo.fromMap(app as Map<dynamic, dynamic>)).toList();
+    } on PlatformException catch (e) {
+      print("Error getting social media apps: ${e.message}");
+      return [];
+    }
+  }
+
+  /// Search for apps by query
+  Future<List<AppInfo>> searchApps(String query) async {
+    try {
+      final List<dynamic> apps = await _channel.invokeMethod('searchApps', {'query': query});
+      return apps.map((app) => AppInfo.fromMap(app as Map<dynamic, dynamic>)).toList();
+    } on PlatformException catch (e) {
+      print("Error searching apps: ${e.message}");
       return [];
     }
   }

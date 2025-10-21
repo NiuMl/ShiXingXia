@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/main_menu_screen.dart';
 import 'screens/setup_permissions_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/app_blocker_service.dart';
 
 void main() async {
@@ -18,10 +19,23 @@ void main() async {
   runApp(MyApp(setupComplete: setupComplete));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final bool setupComplete;
 
   const MyApp({super.key, required this.setupComplete});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _showSplash = true;
+
+  void _onSplashComplete() {
+    setState(() {
+      _showSplash = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +43,11 @@ class MyApp extends StatelessWidget {
       title: 'GetFit - Exercise Tracker',
       theme: ThemeData.dark(useMaterial3: true),
       debugShowCheckedModeBanner: false,
-      home: setupComplete ? const MainMenuScreen() : const SetupPermissionsScreen(),
+      home: _showSplash
+          ? SplashScreen(onComplete: _onSplashComplete)
+          : (widget.setupComplete
+              ? const MainMenuScreen()
+              : const SetupPermissionsScreen()),
     );
   }
 }

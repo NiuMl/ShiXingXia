@@ -56,13 +56,12 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
 
-    // Get data from cache (instant if preloaded!)
+    // Get data from cache 
     _blockedPackages = _cache.getBlockedPackages();
     _displayedApps = _cache.getSocialMediaApps();
 
     // If cache is empty (shouldn't happen with splash), load now
     if (_displayedApps.isEmpty) {
-      debugPrint('⚠️ Cache empty, loading social media apps...');
       await _cache.preloadSocialMediaApps();
       _displayedApps = _cache.getSocialMediaApps();
       _blockedPackages = _cache.getBlockedPackages();
@@ -79,7 +78,7 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
   Future<void> _searchApps(String query) async {
     setState(() => _isSearching = true);
 
-    // Search in cache (instant if preloaded!)
+    // Search in cache 
     final results = await _cache.searchApps(query);
 
     setState(() {

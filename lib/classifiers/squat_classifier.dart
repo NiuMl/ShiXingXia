@@ -9,6 +9,4 @@ class SquatClassifier extends BaseExerciseClassifier {
           config: ExerciseConfig.squat,
         );
 
-  // Squats are performed in a standing position
-  // No horizontal position requirement
 }

@@ -9,6 +9,4 @@ class JumpingJackClassifier extends BaseExerciseClassifier {
           config: ExerciseConfig.jumpingJack,
         );
 
-  // Jumping jacks are performed standing
-  // No horizontal position requirement
 }

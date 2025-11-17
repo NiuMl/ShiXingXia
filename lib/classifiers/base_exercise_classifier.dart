@@ -62,9 +62,9 @@ abstract class BaseExerciseClassifier {
       _classifier = await compute(_trainKnnModel, csvContent);
 
       _isModelLoaded = true;
-      debugPrint('✅ KNN model trained and ready for ${config.displayName}!');
+      debugPrint('KNN model trained and ready for ${config.displayName}!');
     } catch (e) {
-      debugPrint('❌ Error loading model for ${config.displayName}: $e');
+      debugPrint('Error loading model for ${config.displayName}: $e');
       _isModelLoaded = false;
     }
   }
@@ -156,15 +156,10 @@ abstract class BaseExerciseClassifier {
 
     isHorizontal.value = horizontal;
 
-    if (!horizontal) {
-      debugPrint(
-          '⚠️ Not horizontal: ${angleFromHorizontal.toStringAsFixed(1)}° (need ${config.horizontalAngleMin!.toStringAsFixed(0)}°-${config.horizontalAngleMax!.toStringAsFixed(0)}°)');
-    }
-
     return horizontal;
   }
 
-  // --- MediaPipe-style normalization -----------------------------------------
+  // --- Normalize landmarks -----------------------------------------------------
 
   Map<PoseLandmarkType, PoseLandmark> _normalizeLandmarks(
     Map<PoseLandmarkType, PoseLandmark> lms,
@@ -326,8 +321,6 @@ abstract class BaseExerciseClassifier {
       // If not in valid position for exercises that require it, reset state
       if (!isValidPosition && config.requiresHorizontalPosition) {
         if (_poseEntered) {
-          debugPrint(
-              '❌ Lost valid position for ${config.displayName} - resetting state');
           _poseEntered = false;
         }
 
@@ -429,7 +422,6 @@ abstract class BaseExerciseClassifier {
         'up_confidence': _smoothedUpConf,
       };
     } catch (e) {
-      debugPrint('❌ Classification error for ${config.displayName}: $e');
       return {
         'pose': 'error',
         'confidence': 0.0,
@@ -444,8 +436,6 @@ abstract class BaseExerciseClassifier {
     if (!_poseEntered) {
       if (downConfidence > enterThreshold.value) {
         _poseEntered = true;
-        debugPrint(
-            '⬇️ Entered ${config.enterStateLabel} position (conf: ${downConfidence.toStringAsFixed(1)})');
       }
       return;
     }
@@ -455,8 +445,6 @@ abstract class BaseExerciseClassifier {
       _repetitionCount++;
       repetitionCounter.value = _repetitionCount;
       _poseEntered = false;
-      debugPrint(
-          '💪 ${config.displayName} #$_repetitionCount completed! (conf: ${downConfidence.toStringAsFixed(1)})');
     }
   }
 

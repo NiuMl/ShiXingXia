@@ -9,6 +9,4 @@ class SitupClassifier extends BaseExerciseClassifier {
           config: ExerciseConfig.situp,
         );
 
-  // Sit-ups are performed lying down
-  // No horizontal position requirement like push-ups
 }

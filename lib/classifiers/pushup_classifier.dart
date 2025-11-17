@@ -9,7 +9,4 @@ class PushupClassifier extends BaseExerciseClassifier {
           config: ExerciseConfig.pushup,
         );
 
-  // Push-ups have the horizontal position requirement built into the config
-  // No additional custom logic needed for now, but this class can be extended
-  // with push-up specific features in the future (e.g., form checks, etc.)
 }

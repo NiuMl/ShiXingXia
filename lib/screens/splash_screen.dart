@@ -90,7 +90,7 @@ class _SplashScreenState extends State<SplashScreen>
         widget.onComplete();
       }
     } catch (e) {
-      debugPrint('❌ Error during preload: $e');
+      debugPrint('Error during preload: $e');
       // Still continue even if preload fails
       if (mounted) {
         widget.onComplete();

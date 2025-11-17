@@ -9,6 +9,4 @@ class PullupClassifier extends BaseExerciseClassifier {
           config: ExerciseConfig.pullup,
         );
 
-  // Pull-ups are performed hanging from a bar
-  // No horizontal position requirement
 }

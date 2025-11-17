@@ -30,7 +30,6 @@ class AppCacheService {
     if (_isLoadingSocialMedia || _hasLoadedSocialMedia) return;
 
     _isLoadingSocialMedia = true;
-    debugPrint('🔄 Preloading social media apps...');
 
     try {
       final results = await Future.wait([
@@ -42,10 +41,8 @@ class AppCacheService {
       _socialMediaApps = results[1] as List<AppInfo>;
       _hasLoadedSocialMedia = true;
       isSocialMediaLoaded.value = true;
-
-      debugPrint('✅ Preloaded ${_socialMediaApps!.length} social media apps');
     } catch (e) {
-      debugPrint('❌ Error preloading social media apps: $e');
+      debugPrint('Error preloading social media apps: $e');
     } finally {
       _isLoadingSocialMedia = false;
     }
@@ -56,7 +53,6 @@ class AppCacheService {
     if (_isLoadingAllApps || _hasLoadedAllApps) return;
 
     _isLoadingAllApps = true;
-    debugPrint('🔄 Preloading all apps in background...');
 
     try {
       // Load all apps (without compute isolate due to MethodChannel limitations)
@@ -64,9 +60,8 @@ class AppCacheService {
       _hasLoadedAllApps = true;
       isAllAppsLoaded.value = true;
 
-      debugPrint('✅ Preloaded ${_allApps!.length} apps in background');
     } catch (e) {
-      debugPrint('❌ Error preloading all apps: $e');
+      debugPrint('Error preloading all apps: $e');
     } finally {
       _isLoadingAllApps = false;
     }
@@ -75,7 +70,7 @@ class AppCacheService {
   /// Get social media apps (instant if preloaded)
   List<AppInfo> getSocialMediaApps() {
     if (!_hasLoadedSocialMedia) {
-      debugPrint('⚠️ Social media apps not preloaded yet');
+      debugPrint('Social media apps not preloaded yet');
       return [];
     }
     return _socialMediaApps!;
@@ -84,7 +79,7 @@ class AppCacheService {
   /// Get all apps (instant if preloaded)
   List<AppInfo> getAllApps() {
     if (!_hasLoadedAllApps) {
-      debugPrint('⚠️ All apps not preloaded yet');
+      debugPrint('All apps not preloaded yet');
       return [];
     }
     return _allApps!;
@@ -97,14 +92,13 @@ class AppCacheService {
 
   /// Search apps (uses native search for speed)
   Future<List<AppInfo>> searchApps(String query) async {
-    // Use native Android search for best performance
-    debugPrint('🔍 Searching for: $query');
+    // Use native Android search 
     try {
       final results = await _appBlockerService.searchApps(query);
-      debugPrint('✅ Found ${results.length} results');
+      debugPrint('Found ${results.length} results');
       return results;
     } catch (e) {
-      debugPrint('❌ Error searching apps: $e');
+      debugPrint('Error searching apps: $e');
       return [];
     }
   }
@@ -134,7 +128,7 @@ class AppCacheService {
     _hasLoadedSocialMedia = false;
     isAllAppsLoaded.value = false;
     isSocialMediaLoaded.value = false;
-    debugPrint('🗑️ Cleared app cache');
+    debugPrint('Cleared app cache');
   }
 
   /// Dispose notifiers

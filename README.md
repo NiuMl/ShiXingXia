@@ -29,7 +29,7 @@ A Flutter prototype that uses AI-powered pose detection to track and count exerc
 
 1. Clone the repository
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/BPerju/getfit.git
 cd getfit
 ```
 

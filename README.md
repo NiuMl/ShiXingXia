@@ -13,9 +13,9 @@ A Flutter prototype that uses AI-powered pose detection to track and count exerc
 ## Demo
 
 <p align="center">
-  <img src="main.jpg" width="250"/>
+  <img src="main.jpg" width="200"/>
   <img src="gif.gif" width="250"/>
-  <img src="block.jpg" width="250"/>
+  <img src="block.jpg" width="200"/>
 </p>
 
 ## Getting Started

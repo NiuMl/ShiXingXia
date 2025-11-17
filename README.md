@@ -1,14 +1,22 @@
 # GetFit - AI-Powered Exercise Tracker
 
-A Flutter application that uses AI-powered pose detection to track and count exercise repetitions for multiple exercise types.
+A Flutter prototype that uses AI-powered pose detection to track and count exercise repetitions for multiple exercise types. The earned repetitions can be used to unlock app usage time, promoting fitness and productivity.
 
 ## Features
 
-- **Multi-Exercise Support**: Track push-ups, squats, sit-ups, pull-ups, and jumping jacks
+- **Multi-Exercise Support**: Track push-ups, squats, sit-ups (beta), pull-ups, and jumping jacks
 - **Real-time Pose Detection**: Uses Google ML Kit for accurate pose tracking
 - **KNN Classification**: Machine learning-based exercise classification
 - **Adaptive Thresholds**: Calibrate sensitivity for different fitness levels
 
+
+## Demo
+
+<p align="center">
+  <img src="main.jpg" width="250"/>
+  <img src="gif.gif" width="250"/>
+  <img src="block.jpg" width="250"/>
+</p>
 
 ## Getting Started
 

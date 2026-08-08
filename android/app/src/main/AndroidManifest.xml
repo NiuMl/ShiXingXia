@@ -9,7 +9,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
-        android:label="getfit"
+        android:label="健身打卡"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

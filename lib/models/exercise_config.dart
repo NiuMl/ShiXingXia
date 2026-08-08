@@ -47,16 +47,16 @@ class ExerciseConfig {
     this.horizontalAngleMax,
     this.defaultEnterThreshold = 6.0,
     this.defaultExitThreshold = 4.0,
-    this.enterStateLabel = 'DOWN',
-    this.exitStateLabel = 'UP',
+    this.enterStateLabel = '向下',
+    this.exitStateLabel = '向上',
   });
 
   // Predefined configurations for each exercise type
   static const ExerciseConfig pushup = ExerciseConfig(
     type: ExerciseType.pushup,
     name: 'pushup',
-    displayName: 'Push-ups',
-    description: 'Upper body strength exercise',
+    displayName: '俯卧撑',
+    description: '上肢力量训练',
     icon: Icons.fitness_center,
     primaryColor: Colors.orangeAccent,
     secondaryColor: Colors.greenAccent,
@@ -66,15 +66,15 @@ class ExerciseConfig {
     horizontalAngleMax: 45.0,
     defaultEnterThreshold: 6.0,
     defaultExitThreshold: 4.0,
-    enterStateLabel: 'DOWN',
-    exitStateLabel: 'UP',
+    enterStateLabel: '向下',
+    exitStateLabel: '向上',
   );
 
   static const ExerciseConfig squat = ExerciseConfig(
     type: ExerciseType.squat,
     name: 'squat',
-    displayName: 'Squats',
-    description: 'Lower body strength exercise',
+    displayName: '深蹲',
+    description: '下肢力量训练',
     icon: Icons.accessibility_new,
     primaryColor: Colors.blueAccent,
     secondaryColor: Colors.lightBlueAccent,
@@ -82,15 +82,15 @@ class ExerciseConfig {
     requiresHorizontalPosition: false,
     defaultEnterThreshold: 6.0,
     defaultExitThreshold: 4.0,
-    enterStateLabel: 'DOWN',
-    exitStateLabel: 'UP',
+    enterStateLabel: '向下',
+    exitStateLabel: '向上',
   );
 
   static const ExerciseConfig situp = ExerciseConfig(
     type: ExerciseType.situp,
     name: 'situp',
-    displayName: 'Sit-ups',
-    description: 'Core strengthening exercise',
+    displayName: '仰卧起坐',
+    description: '核心力量训练',
     icon: Icons.airline_seat_recline_normal,
     primaryColor: Colors.purpleAccent,
     secondaryColor: Colors.pinkAccent,
@@ -98,15 +98,15 @@ class ExerciseConfig {
     requiresHorizontalPosition: false,
     defaultEnterThreshold: 6.0,
     defaultExitThreshold: 4.0,
-    enterStateLabel: 'UP',
-    exitStateLabel: 'DOWN',
+    enterStateLabel: '向上',
+    exitStateLabel: '向下',
   );
 
   static const ExerciseConfig pullup = ExerciseConfig(
     type: ExerciseType.pullup,
     name: 'pullup',
-    displayName: 'Pull-ups',
-    description: 'Upper body pulling exercise',
+    displayName: '引体向上',
+    description: '上肢拉力训练',
     icon: Icons.arrow_upward_rounded,
     primaryColor: Colors.tealAccent,
     secondaryColor: Colors.cyanAccent,
@@ -114,15 +114,15 @@ class ExerciseConfig {
     requiresHorizontalPosition: false,
     defaultEnterThreshold: 6.0,
     defaultExitThreshold: 4.0,
-    enterStateLabel: 'UP',
-    exitStateLabel: 'DOWN',
+    enterStateLabel: '向上',
+    exitStateLabel: '向下',
   );
 
   static const ExerciseConfig jumpingJack = ExerciseConfig(
     type: ExerciseType.jumpingJack,
     name: 'jumpingJack',
-    displayName: 'Jumping Jacks',
-    description: 'Full body cardio exercise',
+    displayName: '开合跳',
+    description: '全身有氧运动',
     icon: Icons.local_fire_department,
     primaryColor: Colors.redAccent,
     secondaryColor: Colors.amberAccent,
@@ -130,8 +130,8 @@ class ExerciseConfig {
     requiresHorizontalPosition: false,
     defaultEnterThreshold: 6.0,
     defaultExitThreshold: 4.0,
-    enterStateLabel: 'OPEN',
-    exitStateLabel: 'CLOSED',
+    enterStateLabel: '打开',
+    exitStateLabel: '闭合',
   );
 
   // Get all available exercises

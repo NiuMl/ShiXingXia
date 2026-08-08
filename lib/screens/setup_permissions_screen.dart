@@ -123,19 +123,19 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Enable Accessibility Service'),
+        title: const Text('开启无障碍服务'),
         content: const Text(
-          'To allow GetFit to detect and block apps:\n\n'
-          '1. Tap "Open Settings" below\n'
-          '2. Find "GetFit" in the list\n'
-          '3. Toggle the switch to ON\n'
-          '4. Confirm by tapping OK\n'
-          '5. Return to this screen',
+          '为了让健身打卡能检测并拦截应用：\n\n'
+          '1. 点击下方“打开设置”\n'
+          '2. 在列表中找到“健身打卡”\n'
+          '3. 将开关切换为开启\n'
+          '4. 点击确定确认\n'
+          '5. 返回此页面',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -144,7 +144,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
               await Future.delayed(const Duration(seconds: 1));
               if (context.mounted) await _checkAllPermissions(autoNavigate: false);
             },
-            child: const Text('Open Settings'),
+            child: const Text('打开设置'),
           ),
         ],
       ),
@@ -155,25 +155,25 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Enable Usage Access'),
+        title: const Text('开启使用情况访问权限'),
         content: const Text(
-          'To track which apps are in use:\n\n'
-          '1. Tap "Open Settings" below\n'
-          '2. Find "GetFit" in the list\n'
-          '3. Toggle the switch to ON\n'
-          '4. Return to this screen',
+          '为了追踪正在使用的应用：\n\n'
+          '1. 点击下方“打开设置”\n'
+          '2. 在列表中找到“健身打卡”\n'
+          '3. 将开关切换为开启\n'
+          '4. 返回此页面',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text('取消'),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               await _requestUsageStatsPermission();
             },
-            child: const Text('Open Settings'),
+            child: const Text('打开设置'),
           ),
         ],
       ),
@@ -184,7 +184,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Setup Required'),
+        title: const Text('需要完成设置'),
         automaticallyImplyLeading: false,
       ),
       body: _isCheckingPermissions
@@ -199,7 +199,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  'GetFit needs special permissions',
+                  '健身打卡需要特殊权限',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -208,7 +208,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'These permissions allow the app to block selected apps and track your progress.',
+                  '这些权限允许应用拦截选定的应用并追踪你的进度。',
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
@@ -216,8 +216,8 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
 
                 // Accessibility Permission
                 _PermissionCard(
-                  title: 'Accessibility Service',
-                  description: 'Required to detect when blocked apps are opened and show blocking overlay.',
+                  title: '无障碍服务',
+                  description: '用于检测被拦截应用被打开时显示拦截界面。',
                   icon: Icons.accessibility_new,
                   isGranted: _accessibilityGranted,
                   onTap: () => _showAccessibilityDialog(context),
@@ -227,8 +227,8 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
 
                 // Usage Stats Permission
                 _PermissionCard(
-                  title: 'Usage Access',
-                  description: 'Required to reliably detect which app is in the foreground.',
+                  title: '使用情况访问',
+                  description: '用于可靠检测当前处于前台的应用。',
                   icon: Icons.bar_chart,
                   isGranted: _usageStatsGranted,
                   onTap: () => _showUsageStatsDialog(context),
@@ -238,8 +238,8 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
 
                 // Battery Optimization
                 _PermissionCard(
-                  title: 'Battery Optimization',
-                  description: 'Required to keep the blocking service running in the background.',
+                  title: '电池优化',
+                  description: '用于保持拦截服务在后台运行。',
                   icon: Icons.battery_full,
                   isGranted: _batteryOptimizationDisabled,
                   onTap: _requestBatteryOptimization,
@@ -249,8 +249,8 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
 
                 // Notification Permission
                 _PermissionCard(
-                  title: 'Notifications',
-                  description: 'Required to show usage tracking notifications.',
+                  title: '通知',
+                  description: '用于显示使用时长追踪通知。',
                   icon: Icons.notifications,
                   isGranted: _notificationGranted,
                   onTap: _requestNotificationPermission,
@@ -273,7 +273,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: const Text(
-                      'Continue to App',
+                      '继续使用应用',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -284,7 +284,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
                 OutlinedButton.icon(
                   onPressed: _checkAllPermissions,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Check Permissions'),
+                  label: const Text('检查权限'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),

@@ -17,7 +17,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
-  String _loadingMessage = 'Initializing...';
+  String _loadingMessage = '初始化中...';
   double _progress = 0.0;
 
   @override
@@ -56,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen>
     try {
       // Step 1: Preload social media apps (fast)
       setState(() {
-        _loadingMessage = 'Loading popular apps...';
+        _loadingMessage = '加载常用应用...';
         _progress = 0.3;
       });
 
@@ -67,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen>
 
       // Step 2: Start background loading of all apps (non-blocking)
       setState(() {
-        _loadingMessage = 'Preparing search...';
+        _loadingMessage = '准备搜索功能...';
         _progress = 0.6;
       });
 
@@ -78,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen>
       await Future.delayed(const Duration(milliseconds: 500));
 
       setState(() {
-        _loadingMessage = 'Ready!';
+        _loadingMessage = '准备就绪！';
         _progress = 1.0;
       });
 
@@ -158,7 +158,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                     // App Name
                     const Text(
-                      'GetFit',
+                      '健身打卡',
                       style: TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
@@ -170,7 +170,7 @@ class _SplashScreenState extends State<SplashScreen>
                     const SizedBox(height: 8),
 
                     Text(
-                      'Exercise & Earn Screen Time',
+                      '运动赚取屏幕使用时间',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[400],

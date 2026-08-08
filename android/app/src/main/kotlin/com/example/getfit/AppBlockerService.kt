@@ -95,20 +95,20 @@ class AppBlockerService : AccessibilityService() {
             // Channel for usage tracking notifications
             val usageChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
-                "Screen Time Tracking",
+                "屏幕使用时间追踪",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows time spent in blocked apps"
+                description = "显示在被拦截应用中花费的时间"
                 setShowBadge(false)
             }
 
             // Channel for foreground service notification
             val serviceChannel = NotificationChannel(
                 FOREGROUND_NOTIFICATION_CHANNEL_ID,
-                "App Blocker Service",
+                "应用拦截服务",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Keeps app blocker running in background"
+                description = "保持应用拦截在后台运行"
                 setShowBadge(false)
             }
 
@@ -286,8 +286,8 @@ class AppBlockerService : AccessibilityService() {
             val appName = getAppName(packageName)
 
             val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-                .setContentTitle("Using $appName")
-                .setContentText("Time left: ${minutesLeft}m ${secondsLeft}s")
+                .setContentTitle("正在使用 $appName")
+                .setContentText("剩余时间：${minutesLeft}分${secondsLeft}秒")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setOngoing(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -417,7 +417,7 @@ class AppBlockerService : AccessibilityService() {
 
         val appName = getAppName(packageName)
         appNameTextView.text = appName
-        messageTextView.text = "This app is blocked. Complete exercises to earn screen time!"
+        messageTextView.text = "此应用已被拦截。完成运动即可赚取屏幕使用时间！"
 
         closeButton.setOnClickListener {
             // Return to home screen
@@ -565,8 +565,8 @@ class AppBlockerService : AccessibilityService() {
 
     private fun startForegroundService() {
         val notification = NotificationCompat.Builder(this, FOREGROUND_NOTIFICATION_CHANNEL_ID)
-            .setContentTitle("App Blocker Active")
-            .setContentText("Monitoring app usage in background")
+            .setContentTitle("应用拦截已启动")
+            .setContentText("正在后台监控应用使用情况")
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)

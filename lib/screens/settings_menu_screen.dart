@@ -10,14 +10,14 @@ class SettingsMenuScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text('设置'),
       ),
       body: ListView(
         children: [
           ListTile(
             leading: const Icon(Icons.block),
-            title: const Text('App Blocker'),
-            subtitle: const Text('Select which apps to block'),
+            title: const Text('应用拦截'),
+            subtitle: const Text('选择要拦截的应用'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
@@ -31,8 +31,8 @@ class SettingsMenuScreen extends StatelessWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.security),
-            title: const Text('Permissions'),
-            subtitle: const Text('Review and grant required permissions'),
+            title: const Text('权限管理'),
+            subtitle: const Text('查看并授予所需权限'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
               // Clear setup complete flag to show permission screen
@@ -57,7 +57,7 @@ class SettingsMenuScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
-              'GetFit - Exercise & App Control',
+              '健身打卡 - 运动与应用管理',
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),

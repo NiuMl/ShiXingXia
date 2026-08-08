@@ -50,7 +50,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('GetFit'),
+        title: const Text('健身打卡'),
         centerTitle: true,
         actions: [
           IconButton(

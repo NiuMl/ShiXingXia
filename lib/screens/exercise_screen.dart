@@ -169,14 +169,14 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   Widget build(BuildContext context) {
     if (_isModelLoading) {
       return Scaffold(
-        appBar: AppBar(title: Text('${widget.exerciseConfig.displayName} Counter')),
+        appBar: AppBar(title: Text('${widget.exerciseConfig.displayName}计数器')),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(),
               SizedBox(height: 16),
-              Text('Loading KNN model...'),
+              Text('正在加载 KNN 模型...'),
             ],
           ),
         ),
@@ -185,7 +185,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     if (_controller == null || !_controller!.value.isInitialized) {
       return Scaffold(
-        appBar: AppBar(title: Text('${widget.exerciseConfig.displayName} Counter')),
+        appBar: AppBar(title: Text('${widget.exerciseConfig.displayName}计数器')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -201,7 +201,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('${widget.exerciseConfig.displayName} Counter'),
+          title: Text('${widget.exerciseConfig.displayName}计数器'),
           actions: [
           IconButton(
             icon: Icon(_showCalibrator ? Icons.tune : Icons.tune_outlined),
@@ -210,14 +210,14 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                 _showCalibrator = !_showCalibrator;
               });
             },
-            tooltip: 'Calibrate Sensitivity',
+            tooltip: '校准灵敏度',
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               _classifier.resetCounter();
             },
-            tooltip: 'Reset Counter',
+            tooltip: '重置计数',
           ),
         ],
       ),
@@ -307,7 +307,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       },
                     ),
                     Text(
-                      widget.exerciseConfig.displayName.toUpperCase(),
+                      widget.exerciseConfig.displayName,
                       style: const TextStyle(
                         fontSize: 18,
                         letterSpacing: 2,
@@ -336,7 +336,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Confidence',
+                    '置信度',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 11,
@@ -489,7 +489,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Calibration',
+                        '校准',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -498,7 +498,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Adjust thresholds for counting',
+                        '调整计数阈值',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.white60,
@@ -522,7 +522,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       const Text(
-                                        'Enter Threshold',
+                                        '进入阈值',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 14,
@@ -530,7 +530,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                         ),
                                       ),
                                       Text(
-                                        'Go ${widget.exerciseConfig.enterStateLabel.toLowerCase()}',
+                                        '进入${widget.exerciseConfig.enterStateLabel}',
                                         style: const TextStyle(
                                           color: Colors.white54,
                                           fontSize: 11,
@@ -584,14 +584,14 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Easy (1.0)',
+                                    '简单 (1.0)',
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.5),
                                       fontSize: 10,
                                     ),
                                   ),
                                   Text(
-                                    'Hard (9.5)',
+                                    '困难 (9.5)',
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.5),
                                       fontSize: 10,
@@ -622,7 +622,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       const Text(
-                                        'Exit Threshold',
+                                        '退出阈值',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 14,
@@ -630,7 +630,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                         ),
                                       ),
                                       Text(
-                                        'Go ${widget.exerciseConfig.exitStateLabel.toLowerCase()}',
+                                        '退出${widget.exerciseConfig.exitStateLabel}',
                                         style: const TextStyle(
                                           color: Colors.white54,
                                           fontSize: 11,
@@ -687,14 +687,14 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Fast (0.5)',
+                                    '快速 (0.5)',
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.5),
                                       fontSize: 10,
                                     ),
                                   ),
                                   Text(
-                                    'Slow (9.0)',
+                                    '缓慢 (9.0)',
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(0.5),
                                       fontSize: 10,
@@ -713,7 +713,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
                       // Elbow angle feedback
                       const Text(
-                        'Form Feedback',
+                        '姿势反馈',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -738,7 +738,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
-                                      'Elbow Angle',
+                                      '手肘角度',
                                       style: TextStyle(
                                         color: Colors.white70,
                                         fontSize: 13,
@@ -780,7 +780,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
                       // Quick presets
                       const Text(
-                        'Quick Presets',
+                        '快速预设',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -790,8 +790,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       const SizedBox(height: 12),
 
                       _PresetButton(
-                        label: 'Beginner',
-                        description: 'Enter: 4.0 | Exit: 2.0',
+                        label: '初级',
+                        description: '进入：4.0 | 退出：2.0',
                         onTap: () {
                           _classifier.adjustEnterThreshold(4.0);
                           _classifier.adjustExitThreshold(2.0);
@@ -799,8 +799,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       ),
                       const SizedBox(height: 8),
                       _PresetButton(
-                        label: 'Normal',
-                        description: 'Enter: 6.0 | Exit: 4.0',
+                        label: '标准',
+                        description: '进入：6.0 | 退出：4.0',
                         onTap: () {
                           _classifier.adjustEnterThreshold(6.0);
                           _classifier.adjustExitThreshold(4.0);
@@ -808,8 +808,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                       ),
                       const SizedBox(height: 8),
                       _PresetButton(
-                        label: 'Strict',
-                        description: 'Enter: 7.5 | Exit: 5.5',
+                        label: '严格',
+                        description: '进入：7.5 | 退出：5.5',
                         onTap: () {
                           _classifier.adjustEnterThreshold(7.5);
                           _classifier.adjustExitThreshold(5.5);
@@ -840,7 +840,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                                 ),
                                 SizedBox(width: 8),
                                 Text(
-                                  'How it works',
+                                  '工作原理',
                                   style: TextStyle(
                                     color: Colors.lightBlueAccent,
                                     fontSize: 12,
@@ -851,9 +851,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
                             ),
                             SizedBox(height: 8),
                             Text(
-                              '• Enter: Must exceed to enter target pose\n'
-                              '• Exit: Must drop below to count rep\n'
-                              '• Larger gap = more stable counting',
+                              '• 进入：需超过此值才能进入目标姿势\n'
+                              '• 退出：需低于此值才算完成一次\n'
+                              '• 间隔越大，计数越稳定',
                               style: TextStyle(
                                 color: Colors.lightBlue,
                                 fontSize: 11,

@@ -52,7 +52,7 @@ class TimeCircleWidget extends StatelessWidget {
                       ),
                     ),
                     const Text(
-                      'Minutes\nAvailable',
+                      '可用\n分钟',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
@@ -71,8 +71,8 @@ class TimeCircleWidget extends StatelessWidget {
             children: [
               _StatItem(
                 icon: Icons.fitness_center,
-                label: 'Earned',
-                value: '$earnedMinutes min',
+                label: '已获得',
+                value: '$earnedMinutes 分钟',
                 color: Colors.green,
               ),
               Container(
@@ -82,8 +82,8 @@ class TimeCircleWidget extends StatelessWidget {
               ),
               _StatItem(
                 icon: Icons.phone_android,
-                label: 'Spent',
-                value: '$spentMinutes min',
+                label: '已使用',
+                value: '$spentMinutes 分钟',
                 color: Colors.orange,
               ),
             ],

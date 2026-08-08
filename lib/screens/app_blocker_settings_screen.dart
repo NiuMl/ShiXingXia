@@ -111,7 +111,7 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Block Apps'),
+        title: const Text('拦截应用'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Padding(
@@ -119,7 +119,7 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search more apps...',
+                hintText: '搜索更多应用...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -160,7 +160,7 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
                         const Icon(Icons.block, color: Colors.redAccent, size: 20),
                         const SizedBox(width: 12),
                         Text(
-                          '${_blockedPackages.length} ${_blockedPackages.length == 1 ? 'app' : 'apps'} blocked',
+                          '已拦截 ${_blockedPackages.length} 个应用',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -180,7 +180,7 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
                         Icon(Icons.smartphone, color: Colors.purple.withValues(alpha: 0.8), size: 18),
                         const SizedBox(width: 8),
                         Text(
-                          'Popular Social Apps',
+                          '常用社交应用',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -210,7 +210,7 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Searching...', style: TextStyle(color: Colors.grey)),
+            Text('搜索中...', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -230,15 +230,15 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
             const SizedBox(height: 16),
             Text(
               _searchController.text.isEmpty
-                  ? 'No social media apps found'
-                  : 'No apps match your search',
+                  ? '未找到社交应用'
+                  : '没有匹配的应用',
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 8),
             Text(
               _searchController.text.isEmpty
-                  ? 'Try searching for other apps above'
-                  : 'Try a different search term',
+                  ? '请在上方搜索其他应用'
+                  : '请尝试其他搜索词',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.withValues(alpha: 0.8),
@@ -327,7 +327,7 @@ class _AppBlockerSettingsScreenState extends State<AppBlockerSettingsScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text(
-                      'SOCIAL',
+                      '社交',
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,

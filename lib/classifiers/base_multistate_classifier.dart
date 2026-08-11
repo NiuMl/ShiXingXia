@@ -24,9 +24,8 @@ class BaseMultiStateClassifier extends BaseExerciseClassifier {
       ValueNotifier<List<double>>([]);
 
   // ---- 状态机内部状态 ----
-  int _currentState = 0; // 当前所处状态（0 ~ stateCount-1）
-  int _pendingState = -1; // 待确认的下一个状态
-  int _pendingCount = 0; // 连续命中待确认状态的帧数
+  int _currentState = 0; // 当前所处状态（0 ~ stateCount-1），只前进不回退
+  int _pendingCount = 0; // 下一预期状态的累积命中数（衰减式，不因其他动作清零）
 
   BaseMultiStateClassifier({
     required ExerciseConfig config,
@@ -117,44 +116,42 @@ class BaseMultiStateClassifier extends BaseExerciseClassifier {
   }
 
   /// 有序状态机：必须按 0→1→...→(N-1)→0 顺序推进，回到 0 时计数 +1。
-  /// 预测为非顺序状态时忽略，等待用户回到正确节奏。
+  ///
+  /// 采用"累积衰减"策略（而非连续命中）：
+  /// - 预测为下一预期状态 → 累积数 +1
+  /// - 预测为其他任何状态 → 累积数 -1（不低于 0），**不重置**状态进度
+  /// - 累积数达到 [stableFrames] → 确认推进到下一状态
+  ///
+  /// 状态只前进不后退：一旦推进到某状态就锁定，仅监控下一个动作。
+  /// 中途做了别的动作只会让累积缓慢衰减，不会让进度回退或清零。
   void _updateState(int predicted) {
     final int nextState = (_currentState + 1) % stateCount;
 
     if (predicted == nextState) {
-      // 预测为下一个预期状态 —— 累计防抖帧数
-      if (predicted == _pendingState) {
-        _pendingCount++;
-      } else {
-        _pendingState = predicted;
-        _pendingCount = 1;
+      _pendingCount++;
+    } else {
+      // 做了其他动作：缓慢衰减累积数，但不重置状态进度
+      if (_pendingCount > 0) {
+        _pendingCount--;
       }
-
-      if (_pendingCount >= stableFrames) {
-        // 连续命中达阈值，确认状态转移
-        final int prevState = _currentState;
-        _currentState = nextState;
-        _pendingCount = 0;
-        _pendingState = -1;
-
-        // 从末状态回到起始状态 = 完成一次完整循环
-        if (prevState == stateCount - 1 && _currentState == 0) {
-          repetitionCounter.value = repetitionCounter.value + 1;
-        }
-      }
-    } else if (predicted == _currentState) {
-      // 停留在当前状态，重置待确认
-      _pendingCount = 0;
-      _pendingState = -1;
     }
-    // 预测为其他非顺序状态：忽略
+
+    if (_pendingCount >= stableFrames) {
+      final int prevState = _currentState;
+      _currentState = nextState;
+      _pendingCount = 0;
+
+      // 从末状态回到起始状态 = 完成一次完整循环
+      if (prevState == stateCount - 1 && _currentState == 0) {
+        repetitionCounter.value = repetitionCounter.value + 1;
+      }
+    }
   }
 
   @override
   void resetCounter() {
     super.resetCounter(); // 重置 repetitionCounter 等
     _currentState = 0;
-    _pendingState = -1;
     _pendingCount = 0;
     currentStateIndex.value = 0;
     stateConfidences.value = [];

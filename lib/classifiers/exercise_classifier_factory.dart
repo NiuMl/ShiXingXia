@@ -5,6 +5,7 @@ import 'squat_classifier.dart';
 import 'situp_classifier.dart';
 import 'pullup_classifier.dart';
 import 'jumpingjack_classifier.dart';
+import 'bai108_classifier.dart';
 
 /// Factory class for creating exercise classifiers
 class ExerciseClassifierFactory {
@@ -24,6 +25,8 @@ class ExerciseClassifierFactory {
         return PullupClassifier(logEveryXFrames: logEveryXFrames);
       case ExerciseType.jumpingJack:
         return JumpingJackClassifier(logEveryXFrames: logEveryXFrames);
+      case ExerciseType.bai108:
+        return Bai108Classifier(logEveryXFrames: logEveryXFrames);
     }
   }
 }

@@ -7,6 +7,7 @@ enum ExerciseType {
   situp,
   pullup,
   jumpingJack,
+  bai108,
 }
 
 /// Configuration for a specific exercise type
@@ -33,6 +34,11 @@ class ExerciseConfig {
   final String enterStateLabel;
   final String exitStateLabel;
 
+  // 多状态支持：为 null 表示传统2状态运动；非空则是有序多状态流程
+  final List<String>? stateLabels;
+
+  bool get isMultiState => stateLabels != null && stateLabels!.length > 2;
+
   const ExerciseConfig({
     required this.type,
     required this.name,
@@ -49,6 +55,7 @@ class ExerciseConfig {
     this.defaultExitThreshold = 4.0,
     this.enterStateLabel = '向下',
     this.exitStateLabel = '向上',
+    this.stateLabels,
   });
 
   // Predefined configurations for each exercise type
@@ -134,6 +141,22 @@ class ExerciseConfig {
     exitStateLabel: '闭合',
   );
 
+  // 108拜：多状态有序流程运动（站立→合掌→趴下→站立循环）
+  static const ExerciseConfig bai108 = ExerciseConfig(
+    type: ExerciseType.bai108,
+    name: 'bai108',
+    displayName: '108拜',
+    description: '全身舒展拜佛流程',
+    icon: Icons.self_improvement,
+    primaryColor: Colors.deepPurpleAccent,
+    secondaryColor: Colors.purpleAccent,
+    assetPath: 'assets/bai108_features_binary.csv',
+    requiresHorizontalPosition: false,
+    // 多状态标签：索引即 KNN 类别编号（0=站立, 1=合掌, 2=趴下）
+    // 状态机循环：0→1→2→0(计数+1)
+    stateLabels: ['站立', '合掌', '趴下'],
+  );
+
   // Get all available exercises
   static List<ExerciseConfig> get allExercises => [
     pushup,
@@ -141,6 +164,7 @@ class ExerciseConfig {
     situp,
     pullup,
     jumpingJack,
+    bai108,
   ];
 
   // Get exercise by type
@@ -156,6 +180,8 @@ class ExerciseConfig {
         return pullup;
       case ExerciseType.jumpingJack:
         return jumpingJack;
+      case ExerciseType.bai108:
+        return bai108;
     }
   }
 }

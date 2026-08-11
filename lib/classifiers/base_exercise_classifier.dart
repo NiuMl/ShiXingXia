@@ -13,8 +13,10 @@ abstract class BaseExerciseClassifier {
   final int logEveryXFrames;
 
   int _frameCount = 0;
-  KnnClassifier? _classifier;
-  bool _isModelLoaded = false;
+  @protected
+  KnnClassifier? classifier;
+  @protected
+  bool isModelLoaded = false;
 
   // MediaPipe-style repetition counter
   bool _poseEntered = false;
@@ -59,13 +61,13 @@ abstract class BaseExerciseClassifier {
       final csvContent = await rootBundle.loadString(config.assetPath);
 
       // Run the expensive KNN training in a separate isolate to avoid blocking UI
-      _classifier = await compute(_trainKnnModel, csvContent);
+      classifier = await compute(_trainKnnModel, csvContent);
 
-      _isModelLoaded = true;
+      isModelLoaded = true;
       debugPrint('KNN model trained and ready for ${config.displayName}!');
     } catch (e) {
       debugPrint('Error loading model for ${config.displayName}: $e');
-      _isModelLoaded = false;
+      isModelLoaded = false;
     }
   }
 
@@ -306,7 +308,7 @@ abstract class BaseExerciseClassifier {
   // --- Classification with MediaPipe-style confidence -------------------------
 
   Future<Map<String, dynamic>> classifyPose(Pose pose) async {
-    if (!_isModelLoaded || _classifier == null) {
+    if (!isModelLoaded || classifier == null) {
       return {
         'pose': 'unknown',
         'confidence': 0.0,
@@ -366,7 +368,7 @@ abstract class BaseExerciseClassifier {
       ];
 
       final testData = DataFrame([featureList], headerExists: false);
-      final probabilities = _classifier!.predictProbabilities(testData);
+      final probabilities = classifier!.predictProbabilities(testData);
       final probRow = probabilities.rows.first.toList();
 
       double downProb = 0.0;

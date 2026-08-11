@@ -71,6 +71,7 @@ flutter:
     - assets/situp_features_binary.csv
     - assets/pullup_features_binary.csv
     - assets/jumpingjack_features_binary.csv
+    - assets/bai108_features_binary.csv
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

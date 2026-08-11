@@ -103,8 +103,9 @@ for exercise, poses in exercise_groups.items():
 
     df_ex = df[df["pose"].isin(poses)].reset_index(drop=True)
 
-    # Assign numeric labels based on the 2 unique poses
-    label_map = {poses[0]: 0, poses[1]: 1}
+    # Assign numeric labels based on the unique poses (supports 2+ states)
+    # 用 sorted 保证标签编号稳定且可控（配合标签命名中的数字前缀）
+    label_map = {pose: i for i, pose in enumerate(sorted(poses))}
     df_ex["pose"] = df_ex["pose"].map(label_map)
 
     results = []

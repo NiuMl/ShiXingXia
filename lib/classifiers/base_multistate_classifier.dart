@@ -26,11 +26,22 @@ class BaseMultiStateClassifier extends BaseExerciseClassifier {
   // ---- 状态机内部状态 ----
   int _currentState = 0; // 当前所处状态（0 ~ stateCount-1），只前进不回退
   int _pendingCount = 0; // 下一预期状态的累积命中数（衰减式，不因其他动作清零）
+  int _stateStableFrames = 0; // 当前状态已停留帧数（用于强制等待期，防止跳步）
+
+  /// 每个状态的最小停留帧数（约 0.67 秒，30fps），
+  /// 强制要求用户在每个姿势上保持一段时间，防止 KNN 波动导致连续跳步。
+  final int minDwellFrames;
+
+  /// 最小置信度阈值（0.0 ~ 1.0），只有当预测置信度超过此值时，
+  /// 才允许累积或衰减状态计数。低置信度的预测被视为"不确定"。
+  final double minConfidence;
 
   BaseMultiStateClassifier({
     required ExerciseConfig config,
     super.logEveryXFrames = 1,
     this.stableFrames = 4,
+    this.minDwellFrames = 20,
+    this.minConfidence = 0.5,
   })  : stateCount = config.stateLabels!.length,
         super(config: config);
 
@@ -94,7 +105,7 @@ class BaseMultiStateClassifier extends BaseExerciseClassifier {
       }
 
       // 有序状态机计数（带防抖）
-      _updateState(predicted);
+      _updateState(predicted, maxProb);
 
       currentStateIndex.value = _currentState;
       currentPose.value = config.stateLabels![_currentState];
@@ -117,20 +128,35 @@ class BaseMultiStateClassifier extends BaseExerciseClassifier {
 
   /// 有序状态机：必须按 0→1→...→(N-1)→0 顺序推进，回到 0 时计数 +1。
   ///
-  /// 采用"累积衰减"策略（而非连续命中）：
-  /// - 预测为下一预期状态 → 累积数 +1
-  /// - 预测为其他任何状态 → 累积数 -1（不低于 0），**不重置**状态进度
-  /// - 累积数达到 [stableFrames] → 确认推进到下一状态
+  /// 三重防抖机制：
+  /// 1. **置信度阈值**：只有当预测置信度超过 [minConfidence] 时，才认为该预测有效。
+  ///    低置信度的预测被视为"不确定"，不会推动状态转移，也不会衰减累积数。
+  /// 2. **最小停留时间**：每个状态必须停留至少 [minDwellFrames] 帧后，
+  ///    才允许检查并推进到下一状态。防止 KNN 分类波动导致连续跳步。
+  /// 3. **累积衰减**：在允许推进的窗口期内，预测为下一状态 → 累积 +1；
+  ///    预测为其他状态 → 累积 -1（不低于 0）。累积达 [stableFrames] 才推进。
   ///
   /// 状态只前进不后退：一旦推进到某状态就锁定，仅监控下一个动作。
-  /// 中途做了别的动作只会让累积缓慢衰减，不会让进度回退或清零。
-  void _updateState(int predicted) {
+  void _updateState(int predicted, double confidence) {
     final int nextState = (_currentState + 1) % stateCount;
 
+    // 累加当前状态的停留帧数
+    _stateStableFrames++;
+
+    // 如果还在最小停留期内，禁止推进，直接返回
+    if (_stateStableFrames < minDwellFrames) {
+      return;
+    }
+
+    // 置信度门限：如果预测置信度太低，视为不确定，不影响累积数
+    if (confidence < minConfidence) {
+      return;
+    }
+
+    // 停留期过后 + 置信度足够 → 允许根据累积数推进
     if (predicted == nextState) {
       _pendingCount++;
     } else {
-      // 做了其他动作：缓慢衰减累积数，但不重置状态进度
       if (_pendingCount > 0) {
         _pendingCount--;
       }
@@ -140,6 +166,7 @@ class BaseMultiStateClassifier extends BaseExerciseClassifier {
       final int prevState = _currentState;
       _currentState = nextState;
       _pendingCount = 0;
+      _stateStableFrames = 0; // 状态转移后，重新开始计算停留时间
 
       // 从末状态回到起始状态 = 完成一次完整循环
       if (prevState == stateCount - 1 && _currentState == 0) {
@@ -153,6 +180,7 @@ class BaseMultiStateClassifier extends BaseExerciseClassifier {
     super.resetCounter(); // 重置 repetitionCounter 等
     _currentState = 0;
     _pendingCount = 0;
+    _stateStableFrames = 0;
     currentStateIndex.value = 0;
     stateConfidences.value = [];
   }

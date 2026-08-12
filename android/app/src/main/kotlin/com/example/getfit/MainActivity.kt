@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.WindowManager
 import androidx.annotation.NonNull
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
@@ -101,6 +102,17 @@ class MainActivity : FlutterActivity() {
                 }
                 "requestNotificationPermission" -> {
                     requestNotificationPermission()
+                    result.success(null)
+                }
+                "setKeepScreenOn" -> {
+                    val keepOn = call.argument<Boolean>("keepOn") ?: true
+                    runOnUiThread {
+                        if (keepOn) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
+                    }
                     result.success(null)
                 }
                 else -> {

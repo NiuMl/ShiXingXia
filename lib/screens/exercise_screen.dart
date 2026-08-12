@@ -36,6 +36,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   late final BaseExerciseClassifier _classifier;
 
+  /// 平台通道：控制屏幕常亮（防止运动监控时熄屏）
+  static const _platform = MethodChannel('com.example.getfit/app_blocker');
+
   /// 多状态运动时返回多状态分类器，否则返回 null
   BaseMultiStateClassifier? get _multiState =>
       _classifier is BaseMultiStateClassifier
@@ -49,6 +52,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       widget.exerciseConfig,
       logEveryXFrames: 1,
     );
+    _setKeepScreenOn(true);
     _initializeApp();
   }
 
@@ -58,6 +62,15 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
       _isModelLoading = false;
     });
     await _initCamera();
+  }
+
+  /// 控制屏幕常亮：运动监控期间保持屏幕不熄灭
+  Future<void> _setKeepScreenOn(bool keepOn) async {
+    try {
+      await _platform.invokeMethod('setKeepScreenOn', {'keepOn': keepOn});
+    } catch (e) {
+      debugPrint('setKeepScreenOn error: $e');
+    }
   }
 
   Future<void> _initCamera() async {
@@ -165,6 +178,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   @override
   void dispose() {
+    _setKeepScreenOn(false);
     _controller?.dispose();
     _detector.close();
     _keyPoints.dispose();

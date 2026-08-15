@@ -57,7 +57,7 @@ class SettingsMenuScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
-              '健身打卡 - 运动与应用管理',
+              '108拜 - 运动与应用管理',
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),

@@ -15,15 +15,22 @@ class MainMenuScreen extends StatefulWidget {
 
 class _MainMenuScreenState extends State<MainMenuScreen> {
   final TimeTrackingService _timeService = TimeTrackingService();
-  int _earnedMinutes = 0;
-  int _spentMinutes = 0;
+  int _todayTotalMinutes = 0;
+
+  /// 当天已使用的运动：key = exerciseName, value = 秒数
+  Map<String, int> _todayExerciseSeconds = {};
+
   Timer? _refreshTimer;
+
+  /// 所有运动名列表，用于查询时长
+  List<String> get _allExerciseNames =>
+      ExerciseConfig.allExercises.map((e) => e.name).toList();
 
   @override
   void initState() {
     super.initState();
     _loadTimeData();
-    // Refresh time data every second to show real-time updates
+    // 每秒刷新：运动中时长会每10秒写入，返回首页时能尽快看到最新数据
     _refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _loadTimeData();
     });
@@ -36,21 +43,36 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   }
 
   Future<void> _loadTimeData() async {
-    final earned = await _timeService.getEarnedMinutes();
-    final spent = await _timeService.getSpentMinutes();
+    final names = _allExerciseNames;
+    final totalMin = await _timeService.getTodayTotalDurationMinutes(names);
+    final durations = await _timeService.getTodayExerciseDurations(names);
     if (mounted) {
       setState(() {
-        _earnedMinutes = earned;
-        _spentMinutes = spent;
+        _todayTotalMinutes = totalMin;
+        _todayExerciseSeconds = durations;
       });
     }
   }
 
+  /// 将秒数格式化为 "X分Y秒" 或 "X分钟"（整分时）
+  String _formatDuration(int seconds) {
+    final min = seconds ~/ 60;
+    final sec = seconds % 60;
+    if (min == 0) return '$sec秒';
+    if (sec == 0) return '$min分钟';
+    return '$min分${sec}秒';
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 按 allExercises 顺序过滤出当天使用过的配置
+    final usedConfigs = ExerciseConfig.allExercises
+        .where((c) => _todayExerciseSeconds.containsKey(c.name))
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('健身打卡'),
+        title: const Text('108拜'),
         centerTitle: true,
         actions: [
           IconButton(
@@ -62,7 +84,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                   builder: (_) => const SettingsMenuScreen(),
                 ),
               );
-              // Reload data when returning from settings
               _loadTimeData();
             },
           ),
@@ -82,13 +103,46 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
-              // Time Circle Widget
+              // Time Circle Widget：显示当天总运动分钟数
               SliverToBoxAdapter(
                 child: TimeCircleWidget(
-                  earnedMinutes: _earnedMinutes,
-                  spentMinutes: _spentMinutes,
+                  totalMinutes: _todayTotalMinutes,
                 ),
               ),
+              // 当天各运动时长列表（只显示使用过的）：图标 + 时长
+              if (usedConfigs.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '今日运动',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 18,
+                          runSpacing: 16,
+                          children: usedConfigs.map((config) {
+                            final secs =
+                                _todayExerciseSeconds[config.name] ?? 0;
+                            return _TodayExerciseIcon(
+                              config: config,
+                              durationText: _formatDuration(secs),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               // Divider
               const SliverToBoxAdapter(
                 child: Padding(
@@ -116,7 +170,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                                 ),
                               ),
                             );
-                            // Reload time data when returning from exercise
                             _loadTimeData();
                           },
                         ),
@@ -134,6 +187,51 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 当天已使用的运动：图标 + 时长
+class _TodayExerciseIcon extends StatelessWidget {
+  final ExerciseConfig config;
+  final String durationText;
+
+  const _TodayExerciseIcon({
+    required this.config,
+    required this.durationText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: config.primaryColor.withOpacity(0.2),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: config.primaryColor.withOpacity(0.4),
+            ),
+          ),
+          child: Icon(
+            config.icon,
+            size: 26,
+            color: config.primaryColor,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          durationText,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: config.secondaryColor,
+          ),
+        ),
+      ],
     );
   }
 }

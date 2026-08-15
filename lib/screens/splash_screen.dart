@@ -158,7 +158,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                     // App Name
                     const Text(
-                      '健身打卡',
+                      '108拜',
                       style: TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.bold,

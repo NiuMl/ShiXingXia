@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +46,35 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           ? _classifier as BaseMultiStateClassifier
           : null;
 
+  /// ===== 运动计时 =====
+  final TimeTrackingService _timeTracking = TimeTrackingService();
+  Timer? _durationTimer;
+  int _elapsedSeconds = 0;
+  int _lastSavedSeconds = 0;
+
+  /// 启动计时：每秒累加 1 秒，每 10 秒批量保存一次
+  void _startDurationTimer() {
+    _durationTimer?.cancel();
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      _elapsedSeconds += 1;
+      // 每 10 秒保存一次，避免频繁写入
+      if (_elapsedSeconds - _lastSavedSeconds >= 10) {
+        await _flushDuration();
+      }
+    });
+  }
+
+  /// 将尚未保存的秒数写入存储
+  Future<void> _flushDuration() async {
+    final unsaved = _elapsedSeconds - _lastSavedSeconds;
+    if (unsaved <= 0) return;
+    await _timeTracking.addExerciseDuration(
+      widget.exerciseConfig.name,
+      unsaved,
+    );
+    _lastSavedSeconds = _elapsedSeconds;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +84,7 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
     );
     _setKeepScreenOn(true);
     _initializeApp();
+    _startDurationTimer();
   }
 
   Future<void> _initializeApp() async {
@@ -178,6 +209,8 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
   @override
   void dispose() {
+    _durationTimer?.cancel();
+    _flushDuration();
     _setKeepScreenOn(false);
     _controller?.dispose();
     _detector.close();
@@ -213,6 +246,9 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
 
     return WillPopScope(
       onWillPop: () async {
+        // 保存本次运动时长
+        _durationTimer?.cancel();
+        await _flushDuration();
         // Award earned minutes when user navigates back
         final repCount = _classifier.repetitionCounter.value;
         if (repCount > 0) {

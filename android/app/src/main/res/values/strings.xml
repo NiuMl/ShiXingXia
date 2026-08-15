@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">健身打卡</string>
+    <string name="app_name">108拜</string>
     <string name="accessibility_service_description">此服务监控应用使用情况并拦截选定应用，帮助你保持专注。它需要无障碍权限来检测被拦截应用何时被打开，并显示提醒界面。</string>
 </resources>

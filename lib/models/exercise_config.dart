@@ -159,12 +159,12 @@ class ExerciseConfig {
 
   // Get all available exercises
   static List<ExerciseConfig> get allExercises => [
+    bai108,
     pushup,
     squat,
     situp,
     pullup,
     jumpingJack,
-    bai108,
   ];
 
   // Get exercise by type

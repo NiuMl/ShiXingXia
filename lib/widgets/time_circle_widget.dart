@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
 class TimeCircleWidget extends StatelessWidget {
-  final int earnedMinutes;
-  final int spentMinutes;
+  /// 当天总运动分钟数
+  final int totalMinutes;
+
+  /// 每日目标分钟数（用于圆环进度比例），默认 60 分钟
+  final int dailyGoalMinutes;
 
   const TimeCircleWidget({
     super.key,
-    required this.earnedMinutes,
-    required this.spentMinutes,
+    required this.totalMinutes,
+    this.dailyGoalMinutes = 60,
   });
 
   @override
   Widget build(BuildContext context) {
-    final availableMinutes = earnedMinutes - spentMinutes;
-    final progressRatio = earnedMinutes > 0 ? spentMinutes / earnedMinutes : 0.0;
+    final progressRatio = dailyGoalMinutes > 0
+        ? (totalMinutes / dailyGoalMinutes).clamp(0.0, 1.0)
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -27,24 +31,23 @@ class TimeCircleWidget extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Background circle
+                // Background + progress circle
                 SizedBox(
                   width: 220,
                   height: 220,
                   child: CustomPaint(
                     painter: _CirclePainter(
-                      progress: progressRatio.clamp(0.0, 1.0),
-                      earnedColor: Colors.green,
-                      spentColor: Colors.orange,
+                      progress: progressRatio,
+                      progressColor: Colors.deepPurpleAccent,
                     ),
                   ),
                 ),
-                // Center content
+                // Center content: 当天总分钟数
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '$availableMinutes',
+                      '$totalMinutes',
                       style: const TextStyle(
                         fontSize: 64,
                         fontWeight: FontWeight.bold,
@@ -52,10 +55,11 @@ class TimeCircleWidget extends StatelessWidget {
                       ),
                     ),
                     const Text(
-                      '可用\n分钟',
+                      '分钟',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
+                        letterSpacing: 4,
                         color: Colors.white70,
                       ),
                     ),
@@ -64,85 +68,19 @@ class TimeCircleWidget extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          // Stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _StatItem(
-                icon: Icons.fitness_center,
-                label: '已获得',
-                value: '$earnedMinutes 分钟',
-                color: Colors.green,
-              ),
-              Container(
-                width: 1,
-                height: 40,
-                color: Colors.white24,
-              ),
-              _StatItem(
-                icon: Icons.phone_android,
-                label: '已使用',
-                value: '$spentMinutes 分钟',
-                color: Colors.orange,
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 }
 
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _StatItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _CirclePainter extends CustomPainter {
   final double progress;
-  final Color earnedColor;
-  final Color spentColor;
+  final Color progressColor;
 
   _CirclePainter({
     required this.progress,
-    required this.earnedColor,
-    required this.spentColor,
+    required this.progressColor,
   });
 
   @override
@@ -160,24 +98,15 @@ class _CirclePainter extends CustomPainter {
 
     canvas.drawCircle(center, radius - strokeWidth / 2, backgroundPaint);
 
-    // Earned circle (full circle in green)
-    final earnedPaint = Paint()
-      ..color = earnedColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, radius - strokeWidth / 2, earnedPaint);
-
-    // Spent arc (orange, overlaying the green)
+    // Progress arc (gradient-like single color)
     if (progress > 0) {
-      final spentPaint = Paint()
-        ..color = spentColor
+      final progressPaint = Paint()
+        ..color = progressColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
 
-      const startAngle = -math.pi / 2; // Start from top
+      const startAngle = -math.pi / 2;
       final sweepAngle = 2 * math.pi * progress;
 
       canvas.drawArc(
@@ -185,13 +114,14 @@ class _CirclePainter extends CustomPainter {
         startAngle,
         sweepAngle,
         false,
-        spentPaint,
+        progressPaint,
       );
     }
   }
 
   @override
   bool shouldRepaint(_CirclePainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress ||
+        oldDelegate.progressColor != progressColor;
   }
 }

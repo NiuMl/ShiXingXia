@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../services/app_blocker_service.dart';
 import 'main_menu_screen.dart';
 
@@ -12,7 +11,8 @@ class SetupPermissionsScreen extends StatefulWidget {
   State<SetupPermissionsScreen> createState() => _SetupPermissionsScreenState();
 }
 
-class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
+class _SetupPermissionsScreenState extends State<SetupPermissionsScreen>
+    with WidgetsBindingObserver {
   static const MethodChannel _channel = MethodChannel('com.example.getfit/app_blocker');
   final AppBlockerService _appBlockerService = AppBlockerService();
 
@@ -25,7 +25,23 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkAllPermissions();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // App 从后台恢复到前台时，重新检查所有权限
+    // （用户可能刚在系统设置中开启了无障碍/使用情况/电池优化等权限）
+    if (state == AppLifecycleState.resumed) {
+      _checkAllPermissions();
+    }
   }
 
   Future<void> _checkAllPermissions({bool autoNavigate = true}) async {
@@ -78,8 +94,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
   Future<void> _requestUsageStatsPermission() async {
     try {
       await _channel.invokeMethod('requestUsageStatsPermission');
-      await Future.delayed(const Duration(seconds: 1));
-      await _checkAllPermissions(autoNavigate: false);
+      // 权限重查由 didChangeAppLifecycleState 在 App 恢复前台时自动触发
     } catch (e) {
       print("Error requesting usage stats permission: $e");
     }
@@ -88,8 +103,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
   Future<void> _requestBatteryOptimization() async {
     try {
       await _channel.invokeMethod('requestIgnoreBatteryOptimizations');
-      await Future.delayed(const Duration(seconds: 1));
-      await _checkAllPermissions(autoNavigate: false);
+      // 权限重查由 didChangeAppLifecycleState 在 App 恢复前台时自动触发
     } catch (e) {
       print("Error requesting battery optimization: $e");
     }
@@ -97,17 +111,19 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
 
   Future<bool> _checkNotificationPermission() async {
     try {
-      final status = await Permission.notification.status;
-      return status.isGranted;
+      final bool granted = await _channel.invokeMethod('hasNotificationPermission');
+      return granted;
     } catch (e) {
       print("Error checking notification permission: $e");
-      return true; // On older Android, notifications are granted by default
+      return true; // Android 12 及以下默认有通知权限
     }
   }
 
   Future<void> _requestNotificationPermission() async {
     try {
-      final status = await Permission.notification.request();
+      // 使用原生 MethodChannel 请求通知权限
+      // 原生端会通过 onRequestPermissionsResult 等待用户操作后返回结果
+      await _channel.invokeMethod('requestNotificationPermission');
       await _checkAllPermissions(autoNavigate: false);
     } catch (e) {
       print("Error requesting notification permission: $e");
@@ -125,9 +141,9 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('开启无障碍服务'),
         content: const Text(
-          '为了让健身打卡能检测并拦截应用：\n\n'
+          '为了让108拜能检测并拦截应用：\n\n'
           '1. 点击下方“打开设置”\n'
-          '2. 在列表中找到“健身打卡”\n'
+          '2. 在列表中找到“108拜”\n'
           '3. 将开关切换为开启\n'
           '4. 点击确定确认\n'
           '5. 返回此页面',
@@ -141,8 +157,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
             onPressed: () async {
               Navigator.pop(context);
               await _appBlockerService.openAccessibilitySettings();
-              await Future.delayed(const Duration(seconds: 1));
-              if (context.mounted) await _checkAllPermissions(autoNavigate: false);
+              // 权限重查由 didChangeAppLifecycleState 在 App 恢复前台时自动触发
             },
             child: const Text('打开设置'),
           ),
@@ -159,7 +174,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
         content: const Text(
           '为了追踪正在使用的应用：\n\n'
           '1. 点击下方“打开设置”\n'
-          '2. 在列表中找到“健身打卡”\n'
+          '2. 在列表中找到“108拜”\n'
           '3. 将开关切换为开启\n'
           '4. 返回此页面',
         ),
@@ -199,7 +214,7 @@ class _SetupPermissionsScreenState extends State<SetupPermissionsScreen> {
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  '健身打卡需要特殊权限',
+                  '108拜需要特殊权限',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,

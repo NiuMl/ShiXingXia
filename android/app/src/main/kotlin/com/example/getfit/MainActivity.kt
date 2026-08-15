@@ -22,6 +22,9 @@ class MainActivity : FlutterActivity() {
     private val KEY_BLOCKED_APPS = "blocked_apps"
     private val KEY_BLOCKING_ENABLED = "blocking_enabled"
 
+    /// 通知权限请求的回调（等待用户在系统对话框中操作后返回结果）
+    private var notificationPermissionResult: MethodChannel.Result? = null
+
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -101,8 +104,8 @@ class MainActivity : FlutterActivity() {
                     result.success(hasPermission)
                 }
                 "requestNotificationPermission" -> {
-                    requestNotificationPermission()
-                    result.success(null)
+                    // 不在此处调用 result.success，等 onRequestPermissionsResult 回调后返回
+                    requestNotificationPermission(result)
                 }
                 "setKeepScreenOn" -> {
                     val keepOn = call.argument<Boolean>("keepOn") ?: true
@@ -297,9 +300,28 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestNotificationPermission() {
+    private fun requestNotificationPermission(result: MethodChannel.Result) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // 保存 result 引用，等 onRequestPermissionsResult 回调后返回结果
+            notificationPermissionResult = result
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+        } else {
+            // Android 12 及以下默认有通知权限
+            result.success(true)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 101) {
+            val granted = grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            notificationPermissionResult?.success(granted)
+            notificationPermissionResult = null
         }
     }
 }

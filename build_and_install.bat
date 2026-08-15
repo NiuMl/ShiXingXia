@@ -1,75 +1,75 @@
 @echo off
-chcp 65001 >nul
+chcp 936 >nul
 setlocal enabledelayedexpansion
 
 REM ============================================================
-REM  GetFit - ä¸€é”®æ‰“åŒ…å¹¶å®‰è£…åˆ°æ‰€æœ‰å·²è¿æ¥çš„ Android è®¾å¤‡
-REM  è‡ªåŠ¨æ‰§è¡Œï¼šä¾èµ–æ‹‰å– -> APK æ„å»º -> è®¾å¤‡æ£€æµ‹ -> å®‰è£…
+REM  GetFit - Ò»¼ü´ò°ü²¢°²×°µ½ËùÓĞÒÑÁ¬½ÓµÄ Android Éè±¸
+REM  ×Ô¶¯Ö´ĞĞ£ºÒÀÀµÀ­È¡ -> APK ¹¹½¨ -> Éè±¸¼ì²â -> °²×°
 REM ============================================================
 
-REM åˆ‡æ¢åˆ°è„šæœ¬æ‰€åœ¨ç›®å½•ï¼ˆå³é¡¹ç›®æ ¹ç›®å½•ï¼‰
+REM ÇĞ»»µ½½Å±¾ËùÔÚÄ¿Â¼£¨¼´ÏîÄ¿¸ùÄ¿Â¼£©
 cd /d "%~dp0"
 
-REM éäº¤äº’æ¨¡å¼ï¼šè®¾ç½® GETFIT_NONINTERACTIVE=1 å¯è·³è¿‡æœ«å°¾ pauseï¼Œä¾¿äº CI/è‡ªåŠ¨åŒ–
+REM ·Ç½»»¥Ä£Ê½£ºÉèÖÃ GETFIT_NONINTERACTIVE=1 ¿ÉÌø¹ıÄ©Î² pause£¬±ãÓÚ CI/×Ô¶¯»¯
 set "NONINTERACTIVE=%GETFIT_NONINTERACTIVE%"
 
-REM é¢œè‰²ä¸æ ‡é¢˜
-title GetFit ä¸€é”®æ‰“åŒ…å®‰è£…å·¥å…·
+REM ÑÕÉ«Óë±êÌâ
+title GetFit Ò»¼ü´ò°ü°²×°¹¤¾ß
 echo ============================================================
-echo   GetFit ä¸€é”®æ‰“åŒ…å¹¶å®‰è£…åˆ°å·²è¿æ¥çš„ Android è®¾å¤‡
+echo   GetFit Ò»¼ü´ò°ü²¢°²×°µ½ÒÑÁ¬½ÓµÄ Android Éè±¸
 echo ============================================================
 echo.
-echo é¡¹ç›®ç›®å½•: %cd%
+echo ÏîÄ¿Ä¿Â¼: %cd%
 echo.
 
-REM ---------- æ­¥éª¤ 0ï¼šç¯å¢ƒæ£€æŸ¥ ----------
-echo [0/4] ç¯å¢ƒæ£€æŸ¥...
+REM ---------- ²½Öè 0£º»·¾³¼ì²é ----------
+echo [0/4] »·¾³¼ì²é...
 where flutter >nul 2>nul
 if errorlevel 1 (
-    echo [é”™è¯¯] æœªæ‰¾åˆ° flutter å‘½ä»¤ï¼Œè¯·ç¡®è®¤ Flutter SDK å·²åŠ å…¥ PATHã€‚
+    echo [´íÎó] Î´ÕÒµ½ flutter ÃüÁî£¬ÇëÈ·ÈÏ Flutter SDK ÒÑ¼ÓÈë PATH¡£
     goto :error_exit
 )
 where adb >nul 2>nul
 if errorlevel 1 (
-    echo [è­¦å‘Š] æœªåœ¨ PATH ä¸­æ‰¾åˆ° adbï¼Œå°†ä¾èµ– flutter å†…ç½®çš„ adbã€‚
+    echo [¾¯¸æ] Î´ÔÚ PATH ÖĞÕÒµ½ adb£¬½«ÒÀÀµ flutter ÄÚÖÃµÄ adb¡£
 )
-echo       Flutter ä¸ ADB æ£€æµ‹é€šè¿‡ã€‚
+echo       Flutter Óë ADB ¼ì²âÍ¨¹ı¡£
 echo.
 
-REM ---------- æ­¥éª¤ 1ï¼šæ‹‰å–ä¾èµ– ----------
-echo [1/4] æ‹‰å– Flutter ä¾èµ– (flutter pub get)...
+REM ---------- ²½Öè 1£ºÀ­È¡ÒÀÀµ ----------
+echo [1/4] À­È¡ Flutter ÒÀÀµ (flutter pub get)...
 call flutter pub get
 if errorlevel 1 (
-    echo [é”™è¯¯] flutter pub get å¤±è´¥ï¼Œè¯·æ£€æŸ¥ pubspec.yaml æˆ–ç½‘ç»œã€‚
+    echo [´íÎó] flutter pub get Ê§°Ü£¬Çë¼ì²é pubspec.yaml »òÍøÂç¡£
     goto :error_exit
 )
-echo       ä¾èµ–æ‹‰å–å®Œæˆã€‚
+echo       ÒÀÀµÀ­È¡Íê³É¡£
 echo.
 
-REM ---------- æ­¥éª¤ 2ï¼šæ„å»º Release APK ----------
-echo [2/4] æ„å»º Release APK (flutter build apk --release)...
-echo       æç¤º: é¦–æ¬¡æ„å»ºå¯èƒ½è€—æ—¶è¾ƒä¹…ï¼Œè¯·è€å¿ƒç­‰å¾…...
+REM ---------- ²½Öè 2£º¹¹½¨ Release APK ----------
+echo [2/4] ¹¹½¨ Release APK (flutter build apk --release)...
+echo       ÌáÊ¾: Ê×´Î¹¹½¨¿ÉÄÜºÄÊ±½Ï¾Ã£¬ÇëÄÍĞÄµÈ´ı...
 call flutter build apk --release
 if errorlevel 1 (
-    echo [é”™è¯¯] APK æ„å»ºå¤±è´¥ï¼Œè¯·æŸ¥çœ‹ä¸Šæ–¹æ—¥å¿—ã€‚
+    echo [´íÎó] APK ¹¹½¨Ê§°Ü£¬Çë²é¿´ÉÏ·½ÈÕÖ¾¡£
     goto :error_exit
 )
-echo       APK æ„å»ºæˆåŠŸã€‚
+echo       APK ¹¹½¨³É¹¦¡£
 echo.
 
-REM ---------- æ­¥éª¤ 3ï¼šå®šä½ç”Ÿæˆçš„ APK ----------
+REM ---------- ²½Öè 3£º¶¨Î»Éú³ÉµÄ APK ----------
 set "APK_PATH=build\app\outputs\flutter-apk\app-release.apk"
 if not exist "%APK_PATH%" (
-    echo [é”™è¯¯] æœªæ‰¾åˆ°æ„å»ºäº§ç‰©: %APK_PATH%
+    echo [´íÎó] Î´ÕÒµ½¹¹½¨²úÎï: %APK_PATH%
     goto :error_exit
 )
-echo [3/4] å·²å®šä½ APK: %APK_PATH%
+echo [3/4] ÒÑ¶¨Î» APK: %APK_PATH%
 echo.
 
-REM ---------- æ­¥éª¤ 4ï¼šæ£€æµ‹è®¾å¤‡å¹¶å®‰è£… ----------
-echo [4/4] æ£€æµ‹å·²è¿æ¥çš„ Android è®¾å¤‡...
-REM ä½¿ç”¨ adb devices (ä¸åŠ  -l)ï¼Œè¾“å‡ºæ ¼å¼ä¸º "<serial>\t<state>"ï¼Œ
-REM åªå–ç¬¬äºŒåˆ—ä¸º "device" çš„è¡Œï¼ˆè¿‡æ»¤ offline / unauthorized ç­‰ï¼‰
+REM ---------- ²½Öè 4£º¼ì²âÉè±¸²¢°²×° ----------
+echo [4/4] ¼ì²âÒÑÁ¬½ÓµÄ Android Éè±¸...
+REM Ê¹ÓÃ adb devices (²»¼Ó -l)£¬Êä³ö¸ñÊ½Îª "<serial>\t<state>"£¬
+REM Ö»È¡µÚ¶şÁĞÎª "device" µÄĞĞ£¨¹ıÂË offline / unauthorized µÈ£©
 for /f "skip=1 tokens=1,2" %%a in ('adb devices') do (
     if "%%b"=="device" (
         set /a device_count+=1
@@ -78,15 +78,15 @@ for /f "skip=1 tokens=1,2" %%a in ('adb devices') do (
 )
 
 if not defined device_count (
-    echo [è­¦å‘Š] æœªæ£€æµ‹åˆ°å·²è¿æ¥çš„ Android è®¾å¤‡ã€‚
-    echo        è¯·ç¡®è®¤:
-    echo          1. è®¾å¤‡å·²å¼€å¯ USB è°ƒè¯•æˆ–é€šè¿‡ç½‘ç»œ adb è¿æ¥
-    echo          2. å·²æ‰§è¡Œ 'adb devices' èƒ½çœ‹åˆ°è®¾å¤‡
-    echo          3. è®¾å¤‡å·²æˆæƒæ­¤ç”µè„‘è°ƒè¯•
+    echo [¾¯¸æ] Î´¼ì²âµ½ÒÑÁ¬½ÓµÄ Android Éè±¸¡£
+    echo        ÇëÈ·ÈÏ:
+    echo          1. Éè±¸ÒÑ¿ªÆô USB µ÷ÊÔ»òÍ¨¹ıÍøÂç adb Á¬½Ó
+    echo          2. ÒÑÖ´ĞĞ 'adb devices' ÄÜ¿´µ½Éè±¸
+    echo          3. Éè±¸ÒÑÊÚÈ¨´ËµçÄÔµ÷ÊÔ
     goto :error_exit
 )
 
-echo       å…±æ£€æµ‹åˆ° %device_count% å° Android è®¾å¤‡ï¼Œå¼€å§‹å®‰è£…...
+echo       ¹²¼ì²âµ½ %device_count% Ì¨ Android Éè±¸£¬¿ªÊ¼°²×°...
 echo.
 
 set /a success_count=0
@@ -95,49 +95,49 @@ set /a fail_count=0
 for /l %%i in (1,1,%device_count%) do (
     set "cur_device=!device_%%i!"
     echo ------------------------------------------------------
-    echo   æ­£åœ¨å®‰è£…åˆ°è®¾å¤‡ [!cur_device!]
+    echo   ÕıÔÚ°²×°µ½Éè±¸ [!cur_device!]
     echo ------------------------------------------------------
     adb -s !cur_device! install -r -t "%APK_PATH%"
     if !errorlevel! equ 0 (
-        echo       [æˆåŠŸ] è®¾å¤‡ !cur_device! å®‰è£…å®Œæˆã€‚
+        echo       [³É¹¦] Éè±¸ !cur_device! °²×°Íê³É¡£
         set /a success_count+=1
     ) else (
-        echo       [å¤±è´¥] è®¾å¤‡ !cur_device! å®‰è£…å¤±è´¥ï¼ˆé”™è¯¯ç  !errorlevel!ï¼‰ã€‚
+        echo       [Ê§°Ü] Éè±¸ !cur_device! °²×°Ê§°Ü£¨´íÎóÂë !errorlevel!£©¡£
         set /a fail_count+=1
     )
     echo.
 )
 
-REM ---------- ç»“æœæ±‡æ€» ----------
+REM ---------- ½á¹û»ã×Ü ----------
 echo ============================================================
-echo   å®‰è£…ç»“æœæ±‡æ€»
+echo   °²×°½á¹û»ã×Ü
 echo ============================================================
-echo   æˆåŠŸ: %success_count% å°
-echo   å¤±è´¥: %fail_count% å°
-echo   APK è·¯å¾„: %cd%\%APK_PATH%
+echo   ³É¹¦: %success_count% Ì¨
+echo   Ê§°Ü: %fail_count% Ì¨
+echo   APK Â·¾¶: %cd%\%APK_PATH%
 echo ============================================================
 echo.
 
 if %fail_count% gtr 0 (
-    echo [æç¤º] éƒ¨åˆ†è®¾å¤‡å®‰è£…å¤±è´¥å¯èƒ½åŸå› :
-    echo          - åº”ç”¨å·²å®‰è£…ä¸”ç­¾åä¸ä¸€è‡´ï¼Œè¯·å…ˆå¸è½½: adb -s è®¾å¤‡ID uninstall com.example.getfit
-    echo          - è®¾å¤‡å­˜å‚¨ç©ºé—´ä¸è¶³
-    echo          - APK æ¶æ„ä¸åŒ¹é…ï¼ˆä¾‹å¦‚ x86 è®¾å¤‡å®‰è£…äº† arm-only åŒ…ï¼‰
+    echo [ÌáÊ¾] ²¿·ÖÉè±¸°²×°Ê§°Ü¿ÉÄÜÔ­Òò:
+    echo          - Ó¦ÓÃÒÑ°²×°ÇÒÇ©Ãû²»Ò»ÖÂ£¬ÇëÏÈĞ¶ÔØ: adb -s Éè±¸ID uninstall com.example.getfit
+    echo          - Éè±¸´æ´¢¿Õ¼ä²»×ã
+    echo          - APK ¼Ü¹¹²»Æ¥Åä£¨ÀıÈç x86 Éè±¸°²×°ÁË arm-only °ü£©
     echo.
 )
 
-echo å®Œæˆã€‚
+echo Íê³É¡£
 if "%NONINTERACTIVE%"=="1" exit /b 0
-echo æŒ‰ä»»æ„é”®é€€å‡º...
+echo °´ÈÎÒâ¼üÍË³ö...
 pause >nul
 exit /b 0
 
 :error_exit
 echo.
 echo ============================================================
-echo   æ‰§è¡Œå¤±è´¥ï¼Œå·²ä¸­æ­¢ã€‚
+echo   Ö´ĞĞÊ§°Ü£¬ÒÑÖĞÖ¹¡£
 echo ============================================================
 if "%NONINTERACTIVE%"=="1" exit /b 1
-echo æŒ‰ä»»æ„é”®é€€å‡º...
+echo °´ÈÎÒâ¼üÍË³ö...
 pause >nul
 exit /b 1

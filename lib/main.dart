@@ -40,7 +40,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '健身打卡 - 运动追踪',
+      title: '108拜 - 运动追踪',
       theme: ThemeData.dark(useMaterial3: true),
       debugShowCheckedModeBanner: false,
       home: _showSplash
